@@ -80,31 +80,40 @@ filter :: Filter -> Int
 filter = fromEnum
 
 -- | Attribute types
-data AttrT = AttrTInteger
-           | AttrTTimestamp
-           | AttrTOrdinal
-           | AttrTBool
-           | AttrTFloat
-           | AttrTMulti
+data AttrT = AttrTUInt        -- unsigned 32-bit integer
+           | AttrTTimestamp   -- timestamp
+           | AttrTStr2Ordinal -- ordinal string number (integer at search time, specially handled at indexing time)
+           | AttrTBool        -- boolean bit field
+           | AttrTFloat       -- floating point number (IEEE 32-bit)
+           | AttrTBigInt      -- signed 64-bit integer
+           | AttrTString      -- string (binary; in-memory)
+           | AttrTWordCount   -- string word count (integer at search time,tokenized and counted at indexing time)
+           | AttrTMulti       -- multiple values (0 or more) 
            deriving (Show)
 
 instance Enum AttrT where
     toEnum = toAttrT
     fromEnum = attrT
 
-toAttrT 1          = AttrTInteger
+toAttrT 1          = AttrTUInt
 toAttrT 2          = AttrTTimestamp
-toAttrT 3          = AttrTOrdinal
+toAttrT 3          = AttrTStr2Ordinal
 toAttrT 4          = AttrTBool
 toAttrT 5          = AttrTFloat
+toAttrT 6          = AttrTBigInt
+toAttrT 7          = AttrTString
+toAttrT 8          = AttrTWordCount
 toAttrT 0x40000000 = AttrTMulti     
 
-attrT AttrTInteger   = 1
-attrT AttrTTimestamp = 2
-attrT AttrTOrdinal   = 3
-attrT AttrTBool      = 4
-attrT AttrTFloat     = 5
-attrT AttrTMulti     = 0x40000000
+attrT AttrTUInt        = 1
+attrT AttrTTimestamp   = 2
+attrT AttrTStr2Ordinal = 3
+attrT AttrTBool        = 4
+attrT AttrTFloat       = 5
+attrT AttrTBigInt      = 6
+attrT AttrTString      = 7
+attrT AttrTWordCount   = 8
+attrT AttrTMulti       = 0x40000000
 
 -- | Grouping functions
 data GroupByFunction = Day
