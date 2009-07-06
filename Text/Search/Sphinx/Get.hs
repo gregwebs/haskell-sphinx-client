@@ -5,7 +5,7 @@ import Data.Int (Int64)
 import Prelude hiding (readList)
 import Data.ByteString.Lazy hiding (pack, length, map, groupBy)
 import Control.Monad
-import Text.Search.Sphinx.Types
+import qualified Text.Search.Sphinx.Types as T
 
 -- Utility functions
 getNum :: Get Int
@@ -23,7 +23,7 @@ readStr = do len <- getNum
              getLazyByteString (fromIntegral len)
 
 
-getResult :: Get SearchResult
+getResult :: Get T.SearchResult
 getResult = do
     status     <- getNum
     -- todo: we suppose the status is OK
@@ -34,7 +34,7 @@ getResult = do
     matches    <- matchCount `times` readMatch (id64 > 0) (map snd attrs)
     [total, totalFound, time, numWords] <- 4 `times` getNum
     wrds       <- numWords `times` readWord
-    return (SearchResult matches total totalFound wrds)
+    return (T.SearchResult matches total totalFound wrds)
 
 
 readWord = do s <- readStr
@@ -45,11 +45,11 @@ readMatch isId64 attrs = do
     doc <- if isId64 then getNum64 else (getNum >>= return . fromIntegral)
     weight <- getNum
     matchAttrs <- mapM readMatchAttr attrs
-    return $ Match doc weight matchAttrs
+    return $ T.Match doc weight matchAttrs
 
-readMatchAttr AttrTFloat  = error "readMatchAttr for AttrFloat not implemented yet."
-readMatchAttr AttrTMulti  = getNums >>= return . AttrMulti
-readMatchAttr _           = getNum  >>= return . AttrNum
+readMatchAttr T.AttrTFloat  = error "readMatchAttr for AttrFloat not implemented yet."
+readMatchAttr T.AttrTMulti  = getNums >>= return . T.AttrMulti
+readMatchAttr _             = getNum  >>= return . T.AttrNum
 
 readAttr = do
     s <- readStr

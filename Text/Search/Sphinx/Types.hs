@@ -32,9 +32,6 @@ data Searchd = Ok
              | Warning
              deriving (Show, Enum)
 
-searchd :: Searchd -> Int
-searchd = fromEnum
-
 -- | Match modes
 data MatchMode = All
                | Any
@@ -45,18 +42,12 @@ data MatchMode = All
                | Extended2  -- extended engine V2 (TEMPORARY, WILL BE REMOVED)
                deriving (Show, Enum)
 
-matchMode :: MatchMode -> Int
-matchMode = fromEnum
-
 -- | Ranking modes (ext2 only)
 data Rank = ProximityBm25  -- default mode, phrase proximity major factor and BM25 minor one
           | Bm25           -- statistical mode, BM25 ranking only (faster but worse quality)
           | None           -- no ranking, all matches get a weight of 1
           | WordCount      -- simple word-count weighting, rank is a weighted sum of per-field keyword occurence counts
           deriving (Show, Enum)
-
-rank :: Rank -> Int
-rank = fromEnum
 
 -- | Sort modes
 data Sort = Relevance
@@ -67,17 +58,19 @@ data Sort = Relevance
           | Expr
           deriving (Show, Enum)
 
-sort :: Sort -> Int
-sort = fromEnum
-
 -- | Filter types
-data Filter = Values
-            | Range
-            | FloatRange
-            deriving (Show, Enum)
+data Filter = ExclusionFilter Filter
+            | FilterValues String [Int64]
+            | FilterRange  String Int64 Int64
+            -- TODO | FilterFloatRange attr Float Float
+            deriving (Show)
 
-filter :: Filter -> Int
-filter = fromEnum
+-- | shortcut for creating an exclusion filter
+exclude filter = ExclusionFilter filter
+
+fromEnumFilter (FilterValues _ _)  = 0
+fromEnumFilter (FilterRange _ _ _) = 1
+-- fromEnumFilter (FilterFloatRange _ _ _) = 2
 
 -- | Attribute types
 data AttrT = AttrTUInt        -- unsigned 32-bit integer
@@ -123,9 +116,6 @@ data GroupByFunction = Day
                      | Attr
                      | AttrPair
                      deriving (Show, Enum)
-
-groupByFunction :: GroupByFunction -> Int
-groupByFunction = fromEnum
 
 -- | The result of a query
 data SearchResult = SearchResult {

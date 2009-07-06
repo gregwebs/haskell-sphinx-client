@@ -26,6 +26,8 @@ data Configuration = Configuration {
   , minId :: Int
     -- | Maximum ID to match, 0 means no limit
   , maxId :: Int
+    -- | attribute filters
+  , filters :: [T.Filter]
     -- | Group-by sorting clause (to sort groups in result set with)
   , groupBy :: String
     -- | Group-by count-distinct attribute
@@ -63,6 +65,7 @@ defaultConfig = Configuration {
                 , sortBy        = ""
                 , minId         = 0
                 , maxId         = 0
+                , filters       = []
                 , groupSort     = "@group desc"
                 , groupBy       = ""
                 , groupByFunc   = T.Day
