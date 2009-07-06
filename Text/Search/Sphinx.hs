@@ -1,12 +1,10 @@
--- | This is the Haskell version of the Sphinx searchd client.
--- It is a direct translation of sphinx API. http://sphinxsearch.com/docs/current.html#api-reference
--- The basic required functions for querying are implemented
 -- The following functions are not yet implemented:
 -- setFilterFloatRange, setGeoAnchor
 -- resetFilters, resetGroupBy
 -- buildExcerpts, updateAttributes, buildKeyWords
 -- escapeString, status, open, close
-module Text.Search.Sphinx where
+module Text.Search.Sphinx ( module Text.Search.Sphinx,
+  Configuration(..), defaultConfig ) where
 
 import qualified Text.Search.Sphinx.Types as T (VerCommand(VcSearch),
   SearchdCommand(ScSearch), SearchResult, Filter, Filter(..),
