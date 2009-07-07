@@ -47,9 +47,10 @@ readMatch isId64 attrs = do
     matchAttrs <- mapM readMatchAttr attrs
     return $ T.Match doc weight matchAttrs
 
-readMatchAttr T.AttrTFloat  = error "readMatchAttr for AttrFloat not implemented yet."
-readMatchAttr T.AttrTMulti  = getNums >>= return . T.AttrMulti
-readMatchAttr _             = getNum  >>= return . T.AttrNum
+readMatchAttr (T.AttrTMulti T.AttrTUInt)  = getNums >>= return . T.AttrMulti
+readMatchAttr (T.AttrTMulti t) = error $ "readMatchAttr not implemented for MVA " ++ show t ++ " yet."
+readMatchAttr T.AttrTFloat     = error "readMatchAttr for AttrFloat not implemented yet."
+readMatchAttr _                           = getNum  >>= return . T.AttrNum
 
 readAttr = do
     s <- readStr

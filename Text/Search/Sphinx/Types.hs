@@ -73,15 +73,15 @@ fromEnumFilter (FilterRange _ _ _) = 1
 -- fromEnumFilter (FilterFloatRange _ _ _) = 2
 
 -- | Attribute types
-data AttrT = AttrTUInt        -- unsigned 32-bit integer
-           | AttrTTimestamp   -- timestamp
-           | AttrTStr2Ordinal -- ordinal string number (integer at search time, specially handled at indexing time)
-           | AttrTBool        -- boolean bit field
-           | AttrTFloat       -- floating point number (IEEE 32-bit)
-           | AttrTBigInt      -- signed 64-bit integer
-           | AttrTString      -- string (binary; in-memory)
-           | AttrTWordCount   -- string word count (integer at search time,tokenized and counted at indexing time)
-           | AttrTMulti       -- multiple values (0 or more) 
+data AttrT = AttrTUInt          -- unsigned 32-bit integer
+           | AttrTTimestamp     -- timestamp
+           | AttrTStr2Ordinal   -- ordinal string number (integer at search time, specially handled at indexing time)
+           | AttrTBool          -- boolean bit field
+           | AttrTFloat         -- floating point number (IEEE 32-bit)
+           | AttrTBigInt        -- signed 64-bit integer
+           | AttrTString        -- string (binary; in-memory)
+           | AttrTWordCount     -- string word count (integer at search time,tokenized and counted at indexing time)
+           | AttrTMulti AttrT   -- multiple values (0 or more) 
            deriving (Show)
 
 instance Enum AttrT where
@@ -96,7 +96,9 @@ toAttrT 5          = AttrTFloat
 toAttrT 6          = AttrTBigInt
 toAttrT 7          = AttrTString
 toAttrT 8          = AttrTWordCount
-toAttrT 0x40000000 = AttrTMulti     
+toAttrT 0x40000001 = AttrTMulti AttrTUInt
+
+attrMultiMask = 0x40000000
 
 attrT AttrTUInt        = 1
 attrT AttrTTimestamp   = 2
@@ -106,7 +108,7 @@ attrT AttrTFloat       = 5
 attrT AttrTBigInt      = 6
 attrT AttrTString      = 7
 attrT AttrTWordCount   = 8
-attrT AttrTMulti       = 0x40000000
+attrT (AttrTMulti AttrTUInt) = 0x40000001
 
 -- | Grouping functions
 data GroupByFunction = Day
