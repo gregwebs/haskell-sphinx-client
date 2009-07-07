@@ -51,6 +51,7 @@ data Configuration = Configuration {
     -- | Per-field-name weights
   , fieldWeights :: [(String, Int)]
 }
+ deriving (Show)
 
 -- | A basic, default configuration.
 defaultConfig = Configuration {
