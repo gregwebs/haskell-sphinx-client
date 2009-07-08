@@ -1,7 +1,9 @@
-module Text.Search.Sphinx.Types where
+module Text.Search.Sphinx.Types ( module Text.Search.Sphinx.Types,
+ ByteString ) where
 
 import Data.ByteString.Lazy (ByteString)
 import Data.Int (Int64)
+import Data.Maybe (Maybe, isJust)
 
 -- | Search commands
 data SearchdCommand = ScSearch
@@ -26,11 +28,16 @@ verCommand VcUpdate   = 0x101
 verCommand VcKeywords = 0x100
 
 -- | Searchd status codes
-data Searchd = Ok
-             | Error
-             | Retry
-             | Warning
-             deriving (Show, Enum)
+data StatusCode = OK
+                | ERROR
+                | RETRY
+                | WARNING
+                deriving (Show)
+
+toEnumStatus 0 = OK
+toEnumStatus 2 = RETRY
+toEnumStatus 3 = WARNING
+toEnumStatus n = ERROR
 
 -- | Match modes
 data MatchMode = All
@@ -127,10 +134,21 @@ data SearchResult = SearchResult {
     , total   :: Int
       -- | Total amount of matching documents in index.
     , totalFound :: Int
-      -- | List of processed words with the number of docs and the number of hits.
+      -- | processed words with the number of docs and the number of hits.
     , words :: [(ByteString, Int, Int)]
 }
  deriving Show
+
+data Result = ResultOk SearchResult
+            | ResultWarning ByteString SearchResult
+            | ResultError Int ByteString
+            deriving (Show)
+
+data Results = Ok [Result]
+             | Warning ByteString [Result]
+             | Error Int ByteString
+             | Retry ByteString
+             deriving (Show)
 
 data Match = Match {
              -- Document ID
