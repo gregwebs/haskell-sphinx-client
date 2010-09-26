@@ -67,7 +67,6 @@ readMatchAttr _                           = getNum  >>= return . T.AttrNum
 readAttr = do
     s <- getStr
     t <- getNum
-    return ()
     return (s, toEnum t)
 
 readHeader = runGet $ do status  <- getWord16be
