@@ -136,6 +136,8 @@ data SearchResult = SearchResult {
     , totalFound :: Int
       -- | processed words with the number of docs and the number of hits.
     , words :: [(ByteString, Int, Int)]
+      -- | list of attribute names. The Match will contain just the attribute values.
+    , attributeNames :: [ByteString]
 }
  deriving Show
 
@@ -161,5 +163,7 @@ data Match = Match {
  deriving Show
 
 data Attr = AttrMulti [Int]
-          | AttrNum  Int
+          | AttrUInt  Int
+          | AttrBigInt Int64
+          | AttrString ByteString
  deriving Show

@@ -38,13 +38,13 @@ getResult = do
     then return $ (fromJust error)
     else do
       fields     <- readList readField
-      attrs      <- readList readAttr
+      attrs      <- readList readAttrPair
       matchCount <- getNum
       id64       <- getNum
       matches    <- matchCount `times` readMatch (id64 > 0) (map snd attrs)
       [total, totalFound, time, numWords] <- 4 `times` getNum
       wrds       <- numWords `times` readWord
-      let result = T.SearchResult matches total totalFound wrds
+      let result = T.SearchResult matches total totalFound wrds (map fst attrs)
       return (if isJust warning then (fromJust warning) result else T.ResultOk result)
       )
 
@@ -56,15 +56,17 @@ readWord = do s <- getStr
 readMatch isId64 attrs = do
     doc <- if isId64 then getNum64 else (getNum >>= return . fromIntegral)
     weight <- getNum
-    matchAttrs <- mapM readMatchAttr attrs
+    matchAttrs <- mapM readAttr attrs
     return $ T.Match doc weight matchAttrs
+  where
+    readAttr (T.AttrTMulti T.AttrTUInt)  = getNums >>= return . T.AttrMulti
+    readAttr (T.AttrTMulti t) = error $ "readAttr not implemented for MVA " ++ show t ++ " yet."
+    readAttr T.AttrTBigInt    = getNum64 >>= return . T.AttrBigInt
+    readAttr T.AttrTString    = getStr  >>= return . T.AttrString
+    readAttr T.AttrTFloat     = error "readAttr for AttrFloat not implemented yet."
+    readAttr _                = getNum  >>= return . T.AttrUInt
 
-readMatchAttr (T.AttrTMulti T.AttrTUInt)  = getNums >>= return . T.AttrMulti
-readMatchAttr (T.AttrTMulti t) = error $ "readMatchAttr not implemented for MVA " ++ show t ++ " yet."
-readMatchAttr T.AttrTFloat     = error "readMatchAttr for AttrFloat not implemented yet."
-readMatchAttr _                           = getNum  >>= return . T.AttrNum
-
-readAttr = do
+readAttrPair = do
     s <- getStr
     t <- getNum
     return (s, toEnum t)
