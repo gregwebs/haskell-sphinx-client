@@ -3,8 +3,9 @@
 -- resetFilters, resetGroupBy
 -- buildExcerpts, updateAttributes, buildKeyWords
 -- escapeString, status, open, close
-module Text.Search.Sphinx ( module Text.Search.Sphinx,
-  Configuration(..), defaultConfig ) where
+module Text.Search.Sphinx ( module Text.Search.Sphinx
+  , Configuration(..), defaultConfig
+  ) where
 
 import qualified Text.Search.Sphinx.Types as T (VerCommand(VcSearch),
   SearchdCommand(ScSearch), SearchResult, Results(..), Result(..), Filter, Filter(..),

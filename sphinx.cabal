@@ -1,5 +1,5 @@
 Name:            sphinx
-Version:         0.2.1
+Version:         0.2.2
 Synopsis:        Haskell bindings to the Sphinx full-text searching deamon.
 Description:     Haskell bindings to the Sphinx full-text searching deamon. This
                  module is heavily inspired by the php and python client.
