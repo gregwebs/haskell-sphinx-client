@@ -1,5 +1,6 @@
-module Text.Search.Sphinx.Types ( module Text.Search.Sphinx.Types,
- ByteString ) where
+module Text.Search.Sphinx.Types (
+    module Text.Search.Sphinx.Types
+  , ByteString ) where
 
 import Data.ByteString.Lazy (ByteString)
 import Data.Int (Int64)
@@ -141,13 +142,24 @@ data SearchResult = SearchResult {
 }
  deriving Show
 
+-- | a single result, used internally for Results
 data Result = ResultOk SearchResult
             | ResultWarning ByteString SearchResult
             | ResultError Int ByteString
             deriving (Show)
 
-data Results = Ok [Result]
-             | Warning ByteString [Result]
+-- | multiple results from runQueries
+data Results = ResultsOk [Result]
+             | ResultsWarning ByteString [Result]
+             | ResultsError Int ByteString
+             | ResultsRetry ByteString
+             deriving (Show)
+
+-- | a single result returned from the query function
+-- | a case of runQuries where there is just 1 query
+-- | avoids extra unwrapping for the end user of query
+data QueryResult = Ok SearchResult
+             | Warning ByteString SearchResult
              | Error Int ByteString
              | Retry ByteString
              deriving (Show)

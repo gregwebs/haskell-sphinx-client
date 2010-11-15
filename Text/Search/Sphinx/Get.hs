@@ -8,6 +8,9 @@ import Control.Monad
 import qualified Text.Search.Sphinx.Types as T
 import Data.Maybe (isJust, fromJust)
 
+import Debug.Trace
+debug a = trace (show a) a
+
 -- Utility functions
 getNum :: Get Int
 getNum = getWord32be >>= return . fromEnum
@@ -19,7 +22,6 @@ getNums = readList getNum
 readList f = do num <- getNum
                 num `times` f
 times = replicateM
-readField = getStr
 
 getStr = do len <- getNum
             getLazyByteString (fromIntegral len)
@@ -34,10 +36,10 @@ getResult = do
                                         return (Just $ T.ResultWarning w, Nothing)
                         T.ERROR -> do e <- getStr
                                       return (Nothing, Just $ T.ResultError statusNum e)
-  (if isJust error
+  if isJust error
     then return $ (fromJust error)
     else do
-      fields     <- readList readField
+      fields     <- readList getStr
       attrs      <- readList readAttrPair
       matchCount <- getNum
       id64       <- getNum
@@ -46,7 +48,6 @@ getResult = do
       wrds       <- numWords `times` readWord
       let result = T.SearchResult matches total totalFound wrds (map fst attrs)
       return (if isJust warning then (fromJust warning) result else T.ResultOk result)
-      )
 
 
 readWord = do s <- getStr
@@ -60,10 +61,10 @@ readMatch isId64 attrs = do
     return $ T.Match doc weight matchAttrs
   where
     readAttr (T.AttrTMulti T.AttrTUInt)  = getNums >>= return . T.AttrMulti
-    readAttr (T.AttrTMulti t) = error $ "readAttr not implemented for MVA " ++ show t ++ " yet."
     readAttr T.AttrTBigInt    = getNum64 >>= return . T.AttrBigInt
     readAttr T.AttrTString    = getStr  >>= return . T.AttrString
     readAttr T.AttrTFloat     = error "readAttr for AttrFloat not implemented yet."
+    readAttr (T.AttrTMulti t) = error $ "readAttr not implemented for MVA " ++ show t ++ " yet."
     readAttr _                = getNum  >>= return . T.AttrUInt
 
 readAttrPair = do

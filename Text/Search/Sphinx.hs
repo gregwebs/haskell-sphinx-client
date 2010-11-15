@@ -8,8 +8,9 @@ module Text.Search.Sphinx ( module Text.Search.Sphinx
   ) where
 
 import qualified Text.Search.Sphinx.Types as T (VerCommand(VcSearch),
-  SearchdCommand(ScSearch), SearchResult, Results(..), Result(..), Filter, Filter(..),
-  fromEnumFilter, Filter(..), StatusCode(..), toEnumStatus)
+  SearchdCommand(ScSearch), Filter, Filter(..),
+  fromEnumFilter, Filter(..), StatusCode(..), toEnumStatus,
+  SearchResult, Results(..), Result(..), QueryResult(..))
 
 import Text.Search.Sphinx.Configuration (Configuration(..), defaultConfig)
 import Text.Search.Sphinx.Get (times, getResult, readHeader, getStr)
@@ -18,8 +19,7 @@ import Text.Search.Sphinx.Put (num, num64, enum, list, numList, numList64, nums,
 
 import Data.Binary.Put (Put, runPut)
 import Data.Binary.Get (runGet, getWord32be)
-import qualified Data.ByteString.Lazy as BS (ByteString, length, hGet, hPut, tail)
-import Data.ByteString.Lazy.Char8 (pack)
+import qualified Data.ByteString.Lazy as BS (ByteString, length, hGet, hPut, tail, append)
 import Data.Int (Int64)
 
 import Network (connectTo, PortID(PortNumber))
@@ -30,6 +30,7 @@ import Prelude hiding (filter, tail)
 import Debug.Trace
 debug a = trace (show a) a
 
+{- not working properly
 setFilter :: Configuration -> String -> [Int64] -> Bool -> Configuration
 setFilter cfg attr values exclude =
   let f = (T.FilterValues attr values)
@@ -48,6 +49,7 @@ setFilterRange cfg attr min max exclude =
 -- | alternative interface to setFilter* using Filter constructors
 addFilter :: Configuration -> T.Filter -> Configuration
 addFilter cfg filter = cfg { filters = filter : (filters cfg) }
+  -}
 
 addQuery :: Configuration -> String -> String -> String -> Put
 addQuery cfg query index comment = do
@@ -81,11 +83,14 @@ addQuery cfg query index comment = do
     -- attribute overrides
     -- select-list
     where
+      {- Not working properly -}
       putFilter :: T.Filter -> Put
       putFilter (T.ExclusionFilter filter) = putFilter_ filter True
-      putFilter                     filter = putFilter_ filter False
+      putFilter filter                     = putFilter_ filter False
+
       putFilter_ f@(T.FilterValues attr values)  ex = putFilter__ f attr numList64 [values] ex
       putFilter_ f@(T.FilterRange  attr min max) ex = putFilter__ f attr num64 [min, max] ex
+
       putFilter__ filter attr puter values exclude = do
         str (debug attr)
         num $ (debug $ T.fromEnumFilter filter)
@@ -93,16 +98,27 @@ addQuery cfg query index comment = do
         num $ (debug $ fromEnum exclude)
 
 
--- | The 'query' function queries the Sphinx daemon.
+-- | The 'query' function runs a single query against the Sphinx daemon.
 query :: Configuration -- ^ The configuration
       -> String        -- ^ The indexes, "*" means every index
       -> String        -- ^ The query string
-      -> IO (T.Results)
+      -> IO (T.QueryResult)
 query config indexes s = do
     conn <- connect config
     let q = addQuery config s indexes ""
-    results <- runQueries conn q 1
-    return results
+    results <- runQueries conn [q] 1
+    return $ case results of
+      T.ResultsOk rs -> case head rs of -- there is just 1 result
+                        T.ResultOk result        -> T.Ok result
+                        T.ResultWarning w result -> T.Warning w result
+                        T.ResultError code e     -> T.Error code e
+      T.ResultsError   code error      -> T.Error code error
+      T.ResultsRetry   retry           -> T.Retry retry
+      T.ResultsWarning warning (result:results) -> case result of
+                        T.ResultOk result        -> T.Warning warning result
+                        T.ResultWarning w result -> T.Warning (BS.append warning w) result
+                        T.ResultError code e     -> T.Error code e
+         
   where
     connect :: Configuration -> IO Handle
     connect cfg = do connection <- connectTo (host cfg) (PortNumber $ fromIntegral $ port cfg)
@@ -112,35 +128,39 @@ query config indexes s = do
                      BS.hPut connection myVersion
                      return connection
 
-runQueries :: Handle -> Put -> Int -> IO (T.Results)
-runQueries conn q numQueries = do
-    let req = runPut (makeRunQuery q numQueries)
+-- | right now this is really just used by the query method
+-- | it should be able to run multiple queries (results from multiple uses of addQuery)
+-- | but it will just run the first query and ignore the rest
+runQueries :: Handle -> [Put] -> Int -> IO (T.Results)
+runQueries conn qs numQueries = do
+    let nQueries = 1
+    let req = runPut (makeRunQuery (head qs) nQueries)
     BS.hPut conn req
     hFlush conn
-    getResponse conn numQueries
+    getResponse conn nQueries
   where 
-    makeRunQuery query numQueries = do
+    makeRunQuery query n = do
       cmd T.ScSearch
       verCmd T.VcSearch
       num $ fromEnum $ BS.length (runPut query) + 4
-      num numQueries
+      num n
       query
 
     getResponse :: Handle -> Int -> IO (T.Results)
     getResponse conn numResults = do
       header <- BS.hGet conn 8
-      let x@(status, version, len) = readHeader header
+      let (status, version, len) = readHeader header
       if len == 0
         then error "received zero-sized searchd response (bad query?)"
         else return ()
 
-      response  <- BS.hGet conn (fromIntegral len)
+      response <- BS.hGet conn (fromIntegral len)
 
       case T.toEnumStatus status of
-        T.OK      -> return $ T.Ok (getResults response)
-        T.WARNING -> return $ T.Warning (runGet getStr response) (getResults response)
-        T.RETRY   -> return $ T.Retry (errorMessage response)
-        T.ERROR   -> return $ T.Error (fromIntegral status) (errorMessage response)
+        T.OK      -> return $ T.ResultsOk (getResults response)
+        T.WARNING -> return $ T.ResultsWarning (runGet getStr response) (getResults response)
+        T.RETRY   -> return $ T.ResultsRetry (errorMessage response)
+        T.ERROR   -> return $ T.ResultsError (fromIntegral status) (errorMessage response)
       where
         getResults response = runGet (numResults `times` getResult) response
         errorMessage response = BS.tail (BS.tail (BS.tail (BS.tail response)))
