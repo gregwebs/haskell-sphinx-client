@@ -18,7 +18,6 @@ getNum = getWord32be >>= return . fromEnum
 getNum64 :: Get Int64
 getNum64 = getWord64be >>= return . fromIntegral
 
-getNums = readList getNum
 readList f = do num <- getNum
                 num `times` f
 times = replicateM
@@ -60,12 +59,13 @@ readMatch isId64 attrs = do
     matchAttrs <- mapM readAttr attrs
     return $ T.Match doc weight matchAttrs
   where
-    readAttr (T.AttrTMulti T.AttrTUInt)  = getNums >>= return . T.AttrMulti
+    readAttr (T.AttrTMulti attr)  = (readList (readAttr attr)) >>= return . T.AttrMulti
     readAttr T.AttrTBigInt    = getNum64 >>= return . T.AttrBigInt
     readAttr T.AttrTString    = getStr  >>= return . T.AttrString
+    readAttr T.AttrTUInt      = getNum >>= return . T.AttrUInt
     readAttr T.AttrTFloat     = error "readAttr for AttrFloat not implemented yet."
-    readAttr (T.AttrTMulti t) = error $ "readAttr not implemented for MVA " ++ show t ++ " yet."
     readAttr _                = getNum  >>= return . T.AttrUInt
+
 
 readAttrPair = do
     s <- getStr

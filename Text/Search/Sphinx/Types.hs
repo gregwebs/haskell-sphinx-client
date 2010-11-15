@@ -174,7 +174,7 @@ data Match = Match {
              }
  deriving Show
 
-data Attr = AttrMulti [Int]
+data Attr = AttrMulti [Attr]
           | AttrUInt  Int
           | AttrBigInt Int64
           | AttrString ByteString
