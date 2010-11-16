@@ -80,8 +80,8 @@ addQuery cfg query index comment = do
     num (maxQueryTime cfg)
     stringIntList (fieldWeights cfg)
     str comment
-    -- attribute overrides
-    -- select-list
+    num 0 -- attribute overrides (none)
+    str (selectClause cfg) -- select-list
     where
       {- Not working properly -}
       putFilter :: T.Filter -> Put

@@ -23,7 +23,8 @@ data VerCommand = VcSearch
                 | VcKeywords
                 deriving (Show)
 
-verCommand VcSearch   = 0x113
+-- | Important! Search is updated to 1.1, others have been left unchanged
+verCommand VcSearch   = 0x117
 verCommand VcExcerpt  = 0x100
 verCommand VcUpdate   = 0x101
 verCommand VcKeywords = 0x100
