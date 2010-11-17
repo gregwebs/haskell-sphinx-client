@@ -13,5 +13,5 @@ Exposed-Modules: Text.Search.Sphinx, Text.Search.Sphinx.Types,
                  Text.Search.Sphinx.Configuration, Text.Search.Sphinx.Indexable
 Other-Modules:   Text.Search.Sphinx.Get, Text.Search.Sphinx.Put
 Build-Type:      Simple
-Build-Depends:   base >= 0.4,
+Build-Depends:   base >= 4,
                  binary, bytestring, network, haskell98, xml
