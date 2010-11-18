@@ -138,7 +138,8 @@ data SearchResult = SearchResult {
     , totalFound :: Int
       -- | processed words with the number of docs and the number of hits.
     , words :: [(ByteString, Int, Int)]
-      -- | list of attribute names. The Match will contain just the attribute values.
+      -- | List of attribute names returned in the result.
+      -- | The Match will contain just the attribute values in the same order.
     , attributeNames :: [ByteString]
 }
  deriving Show
