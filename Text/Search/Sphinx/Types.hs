@@ -1,4 +1,3 @@
-{-# LANGUAGE DeriveDataTypeable #-}
 module Text.Search.Sphinx.Types (
     module Text.Search.Sphinx.Types
   , ByteString ) where
@@ -6,8 +5,6 @@ module Text.Search.Sphinx.Types (
 import Data.ByteString.Lazy (ByteString)
 import Data.Int (Int64)
 import Data.Maybe (Maybe, isJust)
-import Data.Typeable (Typeable)
-import Data.Data (Data)
 
 -- | Search commands
 data SearchdCommand = ScSearch
@@ -182,4 +179,4 @@ data Attr = AttrMulti [Attr]
           | AttrUInt  Int
           | AttrBigInt Int64
           | AttrString ByteString
-          deriving (Show, Typeable, Data)
+          deriving (Show)
