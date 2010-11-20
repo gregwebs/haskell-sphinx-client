@@ -15,11 +15,10 @@ enum :: Enum a => a -> Put
 enum = num . fromEnum
 
 list f ls = num (length ls) >> mapM_ f ls
-numList   ls = list num ls
-numList64 ls = list num64 ls
 
-nums   cfg = mapM_ (\x -> num   $ x cfg)
-num64s cfg = mapM_ (\x -> num64 $ x cfg)
+numC   cfg = mapM_ (\x -> num   $ x cfg)
+numC64 cfg = mapM_ (\x -> num64 $ x cfg)
+strC   cfg = mapM_ (\x -> str   $ x cfg)
 
 stringIntList :: [(String, Int)] -> Put
 stringIntList xs = list strInt xs

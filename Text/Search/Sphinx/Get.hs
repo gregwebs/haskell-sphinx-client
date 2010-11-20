@@ -25,16 +25,15 @@ times = replicateM
 getStr = do len <- getNum
             getLazyByteString (fromIntegral len)
 
-
-getResult :: Get T.Result
+getResult :: Get (T.QueryResult)
 getResult = do
   statusNum <- getNum
-  case T.toEnumStatus statusNum of
-    T.ERROR n -> do e <- getStr
-                    return $ T.ResultError statusNum e
-    T.OK      -> getResultOk >>= return . T.ResultOk
-    T.WARNING -> do w <- getStr
-                    getResultOk >>= return . (T.ResultWarning w)
+  case T.toQueryStatus statusNum of
+    T.QueryERROR n -> do e <- getStr
+                         return $ T.QueryError statusNum e
+    T.QueryOK      -> getResultOk >>= return . T.QueryOk
+    T.QueryWARNING -> do w <- getStr
+                         getResultOk >>= return . (T.QueryWarning w)
   where
     getResultOk = do
       fields     <- readList getStr
@@ -73,4 +72,4 @@ readAttrPair = do
 readHeader = runGet $ do status  <- getWord16be
                          version <- getWord16be
                          length  <- getWord32be
-                         return (status, version, length)
+                         return (T.toStatus $ fromIntegral status, version, length)

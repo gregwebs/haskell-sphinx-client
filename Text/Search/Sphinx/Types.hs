@@ -23,23 +23,34 @@ data VerCommand = VcSearch
                 | VcKeywords
                 deriving (Show)
 
--- | Important! Search is updated to 1.1, others have been left unchanged
+-- | Important! only 1.1 compatible
 verCommand VcSearch   = 0x117
-verCommand VcExcerpt  = 0x100
+verCommand VcExcerpt  = 0x102
 verCommand VcUpdate   = 0x101
 verCommand VcKeywords = 0x100
 
 -- | Searchd status codes
-data StatusCode = OK
-                | ERROR
-                | RETRY
-                | WARNING
-                deriving (Show)
+data Status = OK
+            | RETRY
+            | WARNING
+            | ERROR Int
+            deriving (Show)
 
-toEnumStatus 0 = OK
-toEnumStatus 2 = RETRY
-toEnumStatus 3 = WARNING
-toEnumStatus n = ERROR
+-- | status from an individual query
+data QueryStatus = QueryOK
+                 | QueryWARNING
+                 | QueryERROR Int
+                 deriving (Show)
+
+toQueryStatus 0 = QueryOK
+toQueryStatus 3 = QueryWARNING
+toQueryStatus 2 = error "Didn't think retry was possible"
+toQueryStatus n = QueryERROR n
+
+toStatus 0 = OK
+toStatus 2 = RETRY
+toStatus 3 = WARNING
+toStatus n = ERROR n
 
 -- | Match modes
 data MatchMode = All
@@ -144,27 +155,18 @@ data SearchResult = SearchResult {
 }
  deriving Show
 
--- | a single result, used internally for Results
-data Result = ResultOk SearchResult
-            | ResultWarning ByteString SearchResult
-            | ResultError Int ByteString
-            deriving (Show)
+-- | a single query result, runQueries returns a list of these
+data QueryResult = QueryOk SearchResult
+                 | QueryWarning ByteString SearchResult
+                 | QueryError Int ByteString
+                 deriving (Show)
 
--- | multiple results from runQueries
-data Results = ResultsOk [Result]
-             | ResultsWarning ByteString [Result]
-             | ResultsError Int ByteString
-             | ResultsRetry ByteString
-             deriving (Show)
-
--- | a single result returned from the query function
--- | a case of runQuries where there is just 1 query
--- | avoids extra unwrapping for the end user of query
-data QueryResult = Ok SearchResult
-             | Warning ByteString SearchResult
-             | Error Int ByteString
-             | Retry ByteString
-             deriving (Show)
+-- | a result returned from searchd
+data Result a = Ok a
+              | Warning ByteString a
+              | Error Int ByteString
+              | Retry ByteString
+              deriving (Show)
 
 data Match = Match {
              -- Document ID
