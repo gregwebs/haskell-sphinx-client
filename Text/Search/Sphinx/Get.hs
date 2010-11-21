@@ -29,15 +29,14 @@ getStr = do len <- getNum
 getResult :: Get T.Result
 getResult = do
   statusNum <- getNum
-  (warning, error) <- case T.toEnumStatus statusNum of
-                        T.OK      -> return (Nothing, Nothing)
-                        T.WARNING -> do w <- getStr
-                                        return (Just $ T.ResultWarning w, Nothing)
-                        T.ERROR -> do e <- getStr
-                                      return (Nothing, Just $ T.ResultError statusNum e)
-  if isJust error
-    then return $ (fromJust error)
-    else do
+  case T.toEnumStatus statusNum of
+    T.ERROR n -> do e <- getStr
+                    return $ T.ResultError statusNum e
+    T.OK      -> getResultOk >>= return . T.ResultOk
+    T.WARNING -> do w <- getStr
+                    getResultOk >>= return . (T.ResultWarning w)
+  where
+    getResultOk = do
       fields     <- readList getStr
       attrs      <- readList readAttrPair
       matchCount <- getNum
@@ -45,8 +44,7 @@ getResult = do
       matches    <- matchCount `times` readMatch (id64 > 0) (map snd attrs)
       [total, totalFound, time, numWords] <- 4 `times` getNum
       wrds       <- numWords `times` readWord
-      let result = T.SearchResult matches total totalFound wrds (map fst attrs)
-      return (if isJust warning then (fromJust warning) result else T.ResultOk result)
+      return $ T.SearchResult matches total totalFound wrds (map fst attrs)
 
 
 readWord = do s <- getStr
