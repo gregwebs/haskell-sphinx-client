@@ -8,9 +8,6 @@ import Control.Monad
 import qualified Text.Search.Sphinx.Types as T
 import Data.Maybe (isJust, fromJust)
 
-import Debug.Trace
-debug a = trace (show a) a
-
 -- Utility functions
 getNum :: Get Int
 getNum = getWord32be >>= return . fromEnum

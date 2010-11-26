@@ -16,6 +16,7 @@ data ExcerptConfiguration = ExcerptConfiguration {
   , singlePassage :: Bool
   , useBoundaries :: Bool
   , weightOrder :: Bool
+  -- | warning! broken on 1.10-beta (keep to default of false)
   , queryMode :: Bool
   , forceAllWords :: Bool
   , limitPassages :: Int
@@ -55,6 +56,6 @@ altConfig = defaultConfig {
     beforeMatch = "<span class='match'>"
   , afterMatch = "</span>"
   , chunkSeparator = " &#8230; "
-  , queryMode = True
+  -- , queryMode = True Buggy!
   , forceAllWords = True
 }

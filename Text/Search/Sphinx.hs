@@ -32,8 +32,10 @@ import Data.Bits ((.|.))
 
 import Prelude hiding (filter, tail)
 
-import Debug.Trace
-debug a = trace (show a) a
+{- the funnest way to debug this is to run the same query with an existing working client and look at the difference
+ - sudo tcpflow -i lo dst port 9306 
+-}
+import Debug.Trace; debug a = trace (show a) a
 
 {- weren't working properly, should try out on latest version now
 setFilter :: Configuration -> String -> [Int64] -> Bool -> Configuration
