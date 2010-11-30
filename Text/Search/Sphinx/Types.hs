@@ -182,4 +182,5 @@ data Attr = AttrMulti [Attr]
           | AttrUInt  Int
           | AttrBigInt Int64
           | AttrString ByteString
+          | AttrFloat Float
           deriving (Show)

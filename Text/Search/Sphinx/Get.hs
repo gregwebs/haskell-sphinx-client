@@ -1,6 +1,8 @@
 module Text.Search.Sphinx.Get where
 
 import Data.Binary.Get
+import Data.Binary.IEEE754
+
 import Data.Int (Int64)
 import Prelude hiding (readList)
 import Data.ByteString.Lazy hiding (pack, length, map, groupBy)
@@ -11,6 +13,9 @@ import Data.Maybe (isJust, fromJust)
 -- Utility functions
 getNum :: Get Int
 getNum = getWord32be >>= return . fromEnum
+
+getFloat :: Get Float
+getFloat = getFloat32be
 
 getNum64 :: Get Int64
 getNum64 = getWord64be >>= return . fromIntegral
@@ -57,7 +62,7 @@ readMatch isId64 attrs = do
     readAttr T.AttrTBigInt    = getNum64 >>= return . T.AttrBigInt
     readAttr T.AttrTString    = getStr  >>= return . T.AttrString
     readAttr T.AttrTUInt      = getNum >>= return . T.AttrUInt
-    readAttr T.AttrTFloat     = error "readAttr for AttrFloat not implemented yet."
+    readAttr T.AttrTFloat     = getFloat >>= return . T.AttrFloat
     readAttr _                = getNum  >>= return . T.AttrUInt
 
 

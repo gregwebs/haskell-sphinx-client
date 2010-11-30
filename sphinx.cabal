@@ -1,5 +1,5 @@
 Name:            sphinx
-Version:         0.3.1
+Version:         0.3.2
 Synopsis:        Haskell bindings to the Sphinx full-text searching deamon.
 Description:     Haskell bindings to the Sphinx full-text searching deamon. This
                  module is heavily inspired by the php and python client.
@@ -19,4 +19,5 @@ Other-Modules:   Text.Search.Sphinx.Get, Text.Search.Sphinx.Put
 
 Build-Type:      Simple
 Build-Depends:   base >= 4,
-                 binary, bytestring, network, haskell98, xml
+                 binary, data-binary-ieee754,
+                 bytestring, network, haskell98, xml
