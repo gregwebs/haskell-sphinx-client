@@ -67,6 +67,11 @@ data Rank = ProximityBm25  -- default mode, phrase proximity major factor and BM
           | Bm25           -- statistical mode, BM25 ranking only (faster but worse quality)
           | None           -- no ranking, all matches get a weight of 1
           | WordCount      -- simple word-count weighting, rank is a weighted sum of per-field keyword occurence counts
+          | Proximity      -- internally used to emulate SPH_MATCH_ALL queries
+          | MatchAny       -- internaly used to emulate SPHINX_MATCH_ANY searching mode
+          | Fieldmask      -- ?
+          | Sph04          -- like ProximityBm25, but more weight given to matches at beginning or end of field
+          | Total
           deriving (Show, Enum)
 
 -- | Sort modes
