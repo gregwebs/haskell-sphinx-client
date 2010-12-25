@@ -1,25 +1,24 @@
-module Text.Search.Sphinx.Indexable (Indexable (..), SchemaType (..), AttrType (..), Id, 
-                                     SphinxSchema (..), serialize)
-                                     where
+module Text.Search.Sphinx.Indexable (
+  SchemaType (..), Id, 
+  SphinxSchema (..), serialize
+  )
+  where
+
+import Data.ByteString.Lazy.UTF8 (toString)
+import qualified Text.Search.Sphinx.Types as T
 
 --import Text.Search.Sphinx.Types
 import Text.XML.Light
 
--- TODO: this should really be the same as Types.Attr
-data Indexable = NumAttr Int
-               | StrAttr String
-               | Field   String
-
 data SchemaType = TField
-                | TAttribute AttrType
-
-data AttrType = AString | AInt
+                | TAttribute T.AttrT
+                | TFieldString
 
 type Id = Int
 
 class SphinxSchema a where
   -- | Convert a value of a to a document with a document id and some attributes and fields.
-  toDocument :: a -> (Id, [(String, Indexable)])
+  toDocument :: a -> (Id, [(String, T.Attr)])
   -- | The first parameter should be ignored, but is used to satisfy Haskell's type system.
   schema   :: a -> [(String, SchemaType)]
 
@@ -30,16 +29,17 @@ serialize items =
     : map (doc . toDocument) items
   )
 
-doc :: (Id, [(String, Indexable)]) -> Element
+doc :: (Id, [(String, T.Attr)]) -> Element
 doc (id, fields) = sphinxEl "document" ! [("id", show id)] <<
                      map docEl fields
 
-docEl :: (String, Indexable) -> Element
+docEl :: (String, T.Attr) -> Element
 docEl (name, content) = normalEl name `text` indexableEl content
 
-indexableEl (NumAttr i) = simpleText $ show i
-indexableEl (StrAttr f) = simpleText $ f
-indexableEl (Field f)   = simpleText $ f
+indexableEl (T.AttrUInt i)   = simpleText $ show i
+indexableEl (T.AttrString s) = simpleText $ toString s
+indexableEl (T.AttrFloat f)  = simpleText $ show f
+indexableEl _  = error "not implemented"
 
 simpleText s = CData { cdVerbatim = CDataText
                      , cdData     = s
@@ -49,10 +49,14 @@ simpleText s = CData { cdVerbatim = CDataText
 schemaField :: (String, SchemaType) -> Element
 schemaField (name, TField)       = sphinxEl "field" ! [("name", name)]
 schemaField (name, TAttribute t) = sphinxEl "attr" ! [("name", name), ("type", attrType t)]
+schemaField (name, TFieldString) = sphinxEl "field_string" ! [("name", name), ("type", attrType T.AttrTString)]
 
-attrType :: AttrType -> String
-attrType AString = "str2ordinal"
-attrType AInt    = "int"
+attrType :: T.AttrT -> String
+attrType T.AttrTString      = "string"
+attrType T.AttrTStr2Ordinal = "str2ordinal"
+attrType T.AttrTUInt        = "int"
+attrType T.AttrTFloat       = "float"
+attrType _       = error "not implemented"
 
 text :: Element -> CData -> Element
 text el dat = el {elContent = [Text dat]}
