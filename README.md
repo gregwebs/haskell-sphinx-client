@@ -1,13 +1,14 @@
 A haskell implementation of a [sphinx full text search](http://sphinxsearch.com) client.
+Sphinx is a very fast and featureful full-text search daemon.
 Compatible with sphinx version 1.1.
 [On hackage](http://hackage.haskell.org/package/sphinx).
 
 Usage
 -----
-`query` will execute a single query
+`query` executes a single query.
 `runQueries` executes multiple queries at once (create them with `addQuery`)
 
-In extended mode you may want to escape a query with `escapeString`
+In extended mode you may want to escape special query characters with `escapeString`
 
 `buildExcerpts` creates highlighted excerpts
 
@@ -17,10 +18,6 @@ You will probably need to import the types also:
     import qualified Text.Search.Sphinx.Types as SphinxT
 
 There is also an `Indexable` module for generating an xml file of data to be indexed
-
-About Sphinx
-------------
-A very fast, and featureful full-text search daemon.
 
 Details
 =======
