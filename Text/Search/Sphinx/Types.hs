@@ -145,7 +145,7 @@ data GroupByFunction = Day
                      deriving (Show, Enum)
 
 -- | The result of a query
-data SearchResult = SearchResult {
+data QueryResult = QueryResult {
       -- | The matches
       matches :: [Match]
       -- | Total amount of matches retrieved on server by this query.
@@ -161,10 +161,10 @@ data SearchResult = SearchResult {
  deriving Show
 
 -- | a single query result, runQueries returns a list of these
-data QueryResult = QueryOk SearchResult
-                 | QueryWarning ByteString SearchResult
-                 | QueryError Int ByteString
-                 deriving (Show)
+data SingleResult = QueryOk QueryResult
+                  | QueryWarning ByteString QueryResult
+                  | QueryError Int ByteString
+                  deriving (Show)
 
 -- | a result returned from searchd
 data Result a = Ok a

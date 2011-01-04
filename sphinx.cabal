@@ -1,5 +1,5 @@
 Name:            sphinx
-Version:         0.3.7
+Version:         0.4.0
 Synopsis:        Haskell bindings to the Sphinx full-text searching deamon.
 Description:     Haskell bindings to the Sphinx full-text searching deamon. Compatible with sphinx version 1.1
 Category:        Text, Search, Database

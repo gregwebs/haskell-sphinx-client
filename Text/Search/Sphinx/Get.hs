@@ -27,7 +27,7 @@ times = replicateM
 getStr = do len <- getNum
             getLazyByteString (fromIntegral len)
 
-getResult :: Get (T.QueryResult)
+getResult :: Get (T.SingleResult)
 getResult = do
   statusNum <- getNum
   case T.toQueryStatus statusNum of
@@ -45,7 +45,7 @@ getResult = do
       matches    <- matchCount `times` readMatch (id64 > 0) (map snd attrs)
       [total, totalFound, time, numWords] <- 4 `times` getNum
       wrds       <- numWords `times` readWord
-      return $ T.SearchResult matches total totalFound wrds (map fst attrs)
+      return $ T.QueryResult matches total totalFound wrds (map fst attrs)
 
 
 readWord = do s <- getStr

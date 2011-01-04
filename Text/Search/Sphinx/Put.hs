@@ -34,3 +34,8 @@ cmd = putWord16be . toEnum . T.searchdCommand
 
 verCmd :: T.VerCommand -> Put
 verCmd = putWord16be . toEnum . T.verCommand
+
+foldPuts :: [Put] -> Put
+foldPuts [] = return ()
+foldPuts [p] = p
+foldPuts (p:ps) = p >> foldPuts ps

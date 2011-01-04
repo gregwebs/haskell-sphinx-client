@@ -16,7 +16,7 @@ data ExcerptConfiguration = ExcerptConfiguration {
   , singlePassage :: Bool
   , useBoundaries :: Bool
   , weightOrder :: Bool
-  -- | warning! broken on 1.10-beta (keep to default of false)
+  -- | warning! broken on 1.10-beta (keep to default of false). Fixed on trunk
   , queryMode :: Bool
   , forceAllWords :: Bool
   , limitPassages :: Int

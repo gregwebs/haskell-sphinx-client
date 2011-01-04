@@ -13,17 +13,18 @@ import qualified Text.Search.Sphinx.Types as T (
   Filter, Filter(..),
   fromEnumFilter, Filter(..),
   QueryStatus(..), toStatus, Status(..),
-  SearchResult, Result(..), QueryResult(..))
+  SingleResult(..), Result(..), QueryResult(..))
 
 import Text.Search.Sphinx.Configuration (Configuration(..), defaultConfig)
 import qualified Text.Search.Sphinx.ExcerptConfiguration as ExConf (ExcerptConfiguration(..))
 import Text.Search.Sphinx.Get (times, getResult, readHeader, getStr)
-import Text.Search.Sphinx.Put (num, num64, enum, list, numC, strC,
+import Text.Search.Sphinx.Put (num, num64, enum, list, numC, strC, foldPuts,
                               numC64, stringIntList, str, cmd, verCmd)
 
 import Data.Binary.Put (Put, runPut)
 import Data.Binary.Get (runGet, getWord32be)
-import qualified Data.ByteString.Lazy as BS (ByteString, length, hGet, hPut, tail, append)
+import qualified Data.ByteString.Lazy as BS (ByteString,
+    length, hGet, hPut, tail, append, empty, null)
 import Data.Int (Int64)
 
 import Network (connectTo, PortID(PortNumber))
@@ -34,41 +35,34 @@ import Prelude hiding (filter, tail)
 
 {- the funnest way to debug this is to run the same query with an existing working client and look at the difference
  - sudo tcpflow -i lo dst port 9306 
--}
 import Debug.Trace; debug a = trace (show a) a
+-}
 
-{- weren't working properly, should try out on latest version now
-setFilter :: Configuration -> String -> [Int64] -> Bool -> Configuration
-setFilter cfg attr values exclude =
-  let f = (T.FilterValues attr values)
-  in  addFilter cfg (if exclude then T.ExclusionFilter f else f)
+escapedChars :: String
+escapedChars =  '"':'\\':"-!@~/()*[]="
 
-setFilterRange :: Configuration -> String -> Int64 -> Int64 -> Bool -> Configuration
-setFilterRange cfg attr min max exclude =
-  let f = (T.FilterRange attr min max)
-  in  addFilter cfg (if exclude then T.ExclusionFilter f else f)
-
---setFilterFloatRange :: Configuration -> String -> Float -> Float -> Bool -> Configuration
---setFilterFloatRange cfg attr min max exclude =
-  --let f = (T.FilterFloatRange attr min max)
-  --in  addFilter cfg (if exclude then T.ExclusionFilter f else f)
-
--- | alternative interface to setFilter* using Filter constructors
-addFilter :: Configuration -> T.Filter -> Configuration
-addFilter cfg filter = cfg { filters = filter : (filters cfg) }
-  -}
+-- | escape all possible meta characters.
+--   most of these characters only need to be escaped in certain contexts
+--   however, in normal searching they will all be ignored
+escapeString :: String -> String
+escapeString [] = []
+escapeString (x:xs) = if x `elem` escapedChars
+                        then '\\':x:escapeString xs
+                        else      x:escapeString xs
 
 -- | The 'query' function runs a single query against the Sphinx daemon.
+--   For Multiple query batches use addQuery and runQueries
 query :: Configuration -- ^ The configuration
       -> String        -- ^ The indexes, "*" means every index
       -> String        -- ^ The query string
-      -> IO (T.Result T.SearchResult) -- ^ just one search result back
-query config indexes s = do
-    conn <- connect (host config) (port config)
-    let q = addQuery config s indexes ""
-    results <- runQueries conn [q] 1
+      -> IO (T.Result T.QueryResult) -- ^ just one search result back
+query config indexes search = do
+    let q = addQuery config search indexes ""
+    results <- runQueries' config [q]
+    -- same as toSearchResult, but we know there is just one query
+    -- could just remove and use runQueries in the future
     return $ case results of
-      T.Ok rs -> case head rs of -- there is just 1 result
+      T.Ok rs -> case head rs of
                         T.QueryOk result        -> T.Ok result
                         T.QueryWarning w result -> T.Warning w result
                         T.QueryError code e     -> T.Error code e
@@ -142,36 +136,74 @@ buildExcerpts config docs indexes words = do
       ])
 
 
--- | right now this is just a lower leve method used by the query method
--- | eventually it will be its own entry point that can run multiple queries by using addQuery
--- | right now it just runs the first query and ignores the rest
-runQueries :: Handle -> [Put] -> Int -> IO (T.Result [T.QueryResult])
-runQueries conn qs numQueries = do
-    let nQueries = 1
-    let req = runPut $ makeRunQuery (head qs) nQueries
-    BS.hPut conn req
-    hFlush conn
-    getSearchResult conn nQueries
-  where 
-    makeRunQuery query n = do
-      cmd T.ScSearch
-      verCmd T.VcSearch
-      num $ fromEnum $ BS.length (runPut query) + 4
-      num n
-      query
-
-getSearchResult :: Handle -> Int -> IO (T.Result [T.QueryResult])
-getSearchResult conn numResults = do
-  (status, response) <- getResponse conn
-  case status of
-    T.OK      -> return $ T.Ok (getResults response)
-    T.WARNING -> return $ T.Warning (runGet getStr response) (getResults response)
-    T.RETRY   -> return $ T.Retry (errorMessage response)
-    T.ERROR n -> return $ T.Error n (errorMessage response)
+-- | use for multiple queries- for a single query, use the query method
+-- easier handling of query result than runQueries'
+runQueries :: Configuration -> [Put] -> IO (T.Result [T.QueryResult])
+runQueries cfg qs = runQueries' cfg qs >>= return . toSearchResult
   where
-    getResults response = runGet (numResults `times` getResult) response
-    errorMessage response = BS.tail (BS.tail (BS.tail (BS.tail response)))
+    --   with batched queries, each query can have an error code,
+    --     regardless of the error code given for the entire batch
+    --   in general there isn't a reason for a valid query to return an error or warning
+    --   using this could make it harder to debug the situation at hand
+    --   perform the following conveniences:
+    --   * return an Error Result if any SingleResult has an Error status
+    --   * pull out any inner warnings to the top level Warning Result
+    --     - this compresses all warnings into one which making debugging harder
+    toSearchResult :: T.Result [T.SingleResult] -> T.Result [T.QueryResult]
+    toSearchResult results =
+        case results of
+          T.Ok rs              -> fromOk rs [] BS.empty
+          T.Warning warning rs -> fromWarn warning rs []
+          T.Retry   retry      -> T.Retry retry
+          T.Error   code error -> T.Error code error
+      where
+        fromOk :: [T.SingleResult] -> [T.QueryResult] -> BS.ByteString -> T.Result [T.QueryResult]
+        fromOk [] acc warn | BS.null warn = T.Ok acc
+                           | otherwise = T.Warning warn acc
+        fromOk (r:rs) acc warn = case r of
+          T.QueryOk result        -> fromOk rs (acc ++ [result]) warn
+          T.QueryWarning w result -> fromOk rs (acc ++ [result]) (BS.append warn w)
+          T.QueryError code e     -> T.Error code e
 
+        fromWarn :: BS.ByteString -> [T.SingleResult] -> [T.QueryResult] -> T.Result [T.QueryResult]
+        fromWarn warning [] acc = T.Warning warning acc
+        fromWarn warning (r:rs) acc = case r of
+          T.QueryOk result        -> fromWarn warning rs (result:acc)
+          T.QueryWarning w result -> fromWarn (BS.append warning w) rs (result:acc)
+          T.QueryError code e     -> T.Error code e
+
+-- | lower level- called by runQueries
+-- | this may be useful for debugging problems- warning messages won't get compressed
+runQueries' :: Configuration -> [Put] -> IO (T.Result [T.SingleResult])
+runQueries' config qs = do
+    conn <- connect (host config) (port config)
+    BS.hPut conn request
+    hFlush conn
+    getSearchResult conn
+  where 
+    numQueries = length qs
+    queryReq = foldPuts qs
+    request = runPut $ do
+                cmd T.ScSearch
+                verCmd T.VcSearch
+                num $ 4 + (fromEnum $ BS.length (runPut queryReq))
+                num numQueries
+                queryReq
+
+    getSearchResult :: Handle -> IO (T.Result [T.SingleResult])
+    getSearchResult conn = do
+      (status, response) <- getResponse conn
+      case status of
+        T.OK      -> return $ T.Ok (getResults response)
+        T.WARNING -> return $ T.Warning (runGet getStr response) (getResults response)
+        T.RETRY   -> return $ T.Retry (errorMessage response)
+        T.ERROR n -> return $ T.Error n (errorMessage response)
+      where
+        getResults response = runGet (numQueries `times` getResult) response
+        errorMessage response = BS.tail (BS.tail (BS.tail (BS.tail response)))
+
+
+-- | TODO: hide this function
 getResponse :: Handle -> IO (T.Status, BS.ByteString)
 getResponse conn = do
   header <- BS.hGet conn 8
@@ -182,8 +214,7 @@ getResponse conn = do
   response <- BS.hGet conn (fromIntegral len)
   return (status, response)
 
--- | right now this is just a lower level method used by the query method
--- | when runQueries works properly this is used to run batched queries
+-- | use with runQueries to run batched queries
 addQuery :: Configuration -> String -> String -> String -> Put
 addQuery cfg query indexes comment = do
     numC cfg [ offset
@@ -225,7 +256,28 @@ addQuery cfg query indexes comment = do
       putFilter_ f@(T.FilterRange  attr min max) ex = putFilter__ f attr num64 [min, max] ex
 
       putFilter__ filter attr puter values exclude = do
-        str (debug attr)
-        num $ (debug $ T.fromEnumFilter filter)
-        mapM_ puter (debug values)
-        num $ (debug $ fromEnum exclude)
+        str attr
+        num $ T.fromEnumFilter filter
+        mapM_ puter values
+        num $ fromEnum exclude
+
+{- weren't working properly, should try out on latest version now
+setFilter :: Configuration -> String -> [Int64] -> Bool -> Configuration
+setFilter cfg attr values exclude =
+  let f = (T.FilterValues attr values)
+  in  addFilter cfg (if exclude then T.ExclusionFilter f else f)
+
+setFilterRange :: Configuration -> String -> Int64 -> Int64 -> Bool -> Configuration
+setFilterRange cfg attr min max exclude =
+  let f = (T.FilterRange attr min max)
+  in  addFilter cfg (if exclude then T.ExclusionFilter f else f)
+
+--setFilterFloatRange :: Configuration -> String -> Float -> Float -> Bool -> Configuration
+--setFilterFloatRange cfg attr min max exclude =
+  --let f = (T.FilterFloatRange attr min max)
+  --in  addFilter cfg (if exclude then T.ExclusionFilter f else f)
+
+-- | alternative interface to setFilter* using Filter constructors
+addFilter :: Configuration -> T.Filter -> Configuration
+addFilter cfg filter = cfg { filters = filter : (filters cfg) }
+  -}
