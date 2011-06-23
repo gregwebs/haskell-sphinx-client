@@ -47,8 +47,7 @@ defaultConfig = ExcerptConfiguration {
   , useBoundaries = False
   , startPassageId = 1
   , loadFiles = False
-  -- | "none", "strip", "index", and "retain". 
-  , htmlStripMode = "index"
+  , htmlStripMode = "index" -- "none", "strip", "index", and "retain". 
   , allowEmpty = False
 }
 
