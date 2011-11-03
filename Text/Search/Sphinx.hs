@@ -28,7 +28,7 @@ import qualified Data.ByteString.Lazy as BS (ByteString,
 import Data.Int (Int64)
 
 import Network (connectTo, PortID(PortNumber))
-import IO (Handle, hFlush)
+import System.IO (Handle, hFlush)
 import Data.Bits ((.|.))
 
 import Prelude hiding (filter, tail)
