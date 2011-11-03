@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 module Text.Search.Sphinx.Types (
     module Text.Search.Sphinx.Types
   , ByteString ) where
@@ -23,9 +24,15 @@ data VerCommand = VcSearch
                 | VcKeywords
                 deriving (Show)
 
--- | Important! only 1.1 compatible
+#ifdef ONE_ONE_BETA
+-- | Important! only 1.1 compatible, not 9.9.x
 verCommand VcSearch   = 0x117
 verCommand VcExcerpt  = 0x102
+#else
+-- | Important! 2.0 compatible
+verCommand VcSearch   = 0x118
+verCommand VcExcerpt  = 0x103
+#endif
 verCommand VcUpdate   = 0x101
 verCommand VcKeywords = 0x100
 
