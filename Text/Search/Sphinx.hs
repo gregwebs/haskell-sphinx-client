@@ -1,3 +1,5 @@
+{-# LANGUAGE CPP #-}
+
 -- The following functions are not yet implemented:
 -- setFilterFloatRange, setGeoAnchor
 -- resetFilters, resetGroupBy
@@ -72,7 +74,7 @@ query config indexes search = do
                         T.QueryOk result        -> T.Warning warning result
                         T.QueryWarning w result -> T.Warning (BS.append warning w) result
                         T.QueryError code e     -> T.Error code e
-         
+
 connect :: String -> Int -> IO Handle
 connect host port = do
   connection <- connectTo host (PortNumber $ fromIntegral $ port)
@@ -183,12 +185,23 @@ runQueries' config qs = do
   where 
     numQueries = length qs
     queryReq = foldPuts qs
+
+#ifdef ONE_ONE_BETA
     request = runPut $ do
                 cmd T.ScSearch
                 verCmd T.VcSearch
                 num $ 4 + (fromEnum $ BS.length (runPut queryReq))
                 num numQueries
                 queryReq
+#else
+    request = runPut $ do
+                cmd T.ScSearch
+                verCmd T.VcSearch
+                num $ 8 + (fromEnum $ BS.length (runPut queryReq))
+                num 0
+                num numQueries
+                queryReq
+#endif
 
     getSearchResult :: Handle -> IO (T.Result [T.SingleResult])
     getSearchResult conn = do
