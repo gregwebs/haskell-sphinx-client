@@ -186,22 +186,21 @@ runQueries' config qs = do
     numQueries = length qs
     queryReq = foldPuts qs
 
+    request = runPut $ do
+                cmd T.ScSearch
+                verCmd T.VcSearch
+                num $ 
 #ifdef ONE_ONE_BETA
-    request = runPut $ do
-                cmd T.ScSearch
-                verCmd T.VcSearch
-                num $ 4 + (fromEnum $ BS.length (runPut queryReq))
-                num numQueries
-                queryReq
+                      4
 #else
-    request = runPut $ do
-                cmd T.ScSearch
-                verCmd T.VcSearch
-                num $ 8 + (fromEnum $ BS.length (runPut queryReq))
+                      8
+#endif
+                        + (fromEnum $ BS.length (runPut queryReq))
+#ifdef ONE_ONE_BETA
                 num 0
+#endif
                 num numQueries
                 queryReq
-#endif
 
     getSearchResult :: Handle -> IO (T.Result [T.SingleResult])
     getSearchResult conn = do
