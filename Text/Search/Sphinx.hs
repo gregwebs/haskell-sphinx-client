@@ -120,6 +120,9 @@ buildExcerpts config docs indexes words = do
       strC config [ExConf.beforeMatch, ExConf.afterMatch, ExConf.chunkSeparator]
       numC config [ExConf.limit, ExConf.around, ExConf.limitPassages, ExConf.limitWords, ExConf.startPassageId]
       str $ ExConf.htmlStripMode config
+#ifndef ONE_ONE_BETA
+      str $ ExConf.passageBoundary config
+#endif
       list str docs
 
     modeFlag :: ExConf.ExcerptConfiguration -> (ExConf.ExcerptConfiguration -> Bool) -> Int -> Int

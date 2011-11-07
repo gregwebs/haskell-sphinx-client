@@ -25,6 +25,7 @@ data ExcerptConfiguration = ExcerptConfiguration {
   , loadFiles :: Bool
   , htmlStripMode :: String
   , allowEmpty :: Bool
+  , passageBoundary :: String
 }
  deriving (Show)
 
@@ -49,6 +50,7 @@ defaultConfig = ExcerptConfiguration {
   , loadFiles = False
   , htmlStripMode = "index" -- "none", "strip", "index", and "retain". 
   , allowEmpty = False
+  , passageBoundary = "none"
 }
 
 -- this seems better to me
