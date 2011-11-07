@@ -31,7 +31,7 @@ Most search and buildExcerpts features are implemented.
 History
 -------
 Originally written by Tupil and maintained by Chris Eidhof for an earlier version of sphinx.
-Greg Weber updated the library for the latest version of sphinx and is now maintaining it.
+Greg Weber improved the library and updated it for the latest version of sphinx, and is now maintaining it.
 
 Usage of this haskell client
 ----------------------------
