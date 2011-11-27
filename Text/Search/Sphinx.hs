@@ -199,7 +199,7 @@ runQueries' config qs = do
                       8
 #endif
                         + (fromEnum $ BS.length (runPut queryReq))
-#ifdef ONE_ONE_BETA
+#ifndef ONE_ONE_BETA
                 num 0
 #endif
                 num numQueries
