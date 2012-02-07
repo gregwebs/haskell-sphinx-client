@@ -190,6 +190,9 @@ data Match = Match {
              }
  deriving Show
 
+instance Eq Match where
+  d1 == d2 = documentId d1 == documentId d2
+
 data Attr = AttrMulti [Attr]
           | AttrUInt  Int
           | AttrBigInt Int64

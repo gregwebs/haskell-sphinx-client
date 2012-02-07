@@ -1,4 +1,5 @@
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 -- The following functions are not yet implemented:
 -- setFilterFloatRange, setGeoAnchor
@@ -10,6 +11,7 @@ module Text.Search.Sphinx ( module Text.Search.Sphinx
   ) where
 
 import qualified Text.Search.Sphinx.Types as T (
+  Match,
   VerCommand(VcSearch, VcExcerpt),
   SearchdCommand(ScSearch, ScExcerpt),
   Filter, Filter(..),
@@ -25,8 +27,8 @@ import Text.Search.Sphinx.Put (num, num64, enum, list, numC, strC, foldPuts,
 
 import Data.Binary.Put (Put, runPut)
 import Data.Binary.Get (runGet, getWord32be)
-import qualified Data.ByteString.Lazy as BS (ByteString,
-    length, hGet, hPut, tail, append, empty, null)
+import qualified Data.ByteString.Lazy as BS
+import qualified Data.ByteString.Lazy.Char8 as BS8
 import Data.Int (Int64)
 
 import Network (connectTo, PortID(PortNumber))
@@ -34,6 +36,7 @@ import System.IO (Handle, hFlush)
 import Data.Bits ((.|.))
 
 import Prelude hiding (filter, tail)
+import Data.List (nub)
 
 {- the funnest way to debug this is to run the same query with an existing working client and look at the difference
  - sudo tcpflow -i lo dst port 9306 
@@ -53,7 +56,7 @@ escapeString (x:xs) = if x `elem` escapedChars
                         else      x:escapeString xs
 
 -- | The 'query' function runs a single query against the Sphinx daemon.
---   For Multiple query batches use addQuery and runQueries
+--   To pipeline multiple queries in a batch, use addQuery and runQueries
 query :: Configuration -- ^ The configuration
       -> String        -- ^ The indexes, "*" means every index
       -> String        -- ^ The query string
@@ -141,8 +144,9 @@ buildExcerpts config docs indexes words = do
       ])
 
 
--- | use for multiple queries- for a single query, use the query method
--- easier handling of query result than runQueries'
+-- | Use with addQuery to pipeline multiple queries.
+-- For a single query, just use the query method
+-- Easier handling of query result than runQueries'
 runQueries :: Configuration -> [Put] -> IO (T.Result [T.QueryResult])
 runQueries cfg qs = runQueries' cfg qs >>= return . toSearchResult
   where
@@ -177,8 +181,8 @@ runQueries cfg qs = runQueries' cfg qs >>= return . toSearchResult
           T.QueryWarning w result -> fromWarn (BS.append warning w) rs (result:acc)
           T.QueryError code e     -> T.Error code e
 
--- | lower level- called by runQueries
--- | this may be useful for debugging problems- warning messages won't get compressed
+-- | lower level- called by 'runQueries'
+-- | This may be useful for debugging problems- warning messages won't get compressed
 runQueries' :: Configuration -> [Put] -> IO (T.Result [T.SingleResult])
 runQueries' config qs = do
     conn <- connect (host config) (port config)
@@ -218,6 +222,31 @@ runQueries' config qs = do
         errorMessage response = BS.tail (BS.tail (BS.tail (BS.tail response)))
 
 
+-- | Combine results from 'runQueries' into matches.
+resultsToMatches :: Int -> [T.QueryResult] -> [T.Match]
+resultsToMatches maxResults = combine
+  where
+    combine [] = []
+    combine (r:rs)
+        | T.totalFound r == maxResults = T.matches r
+        | T.totalFound r == 0          = combine rs
+        | otherwise                          = takeResults (r:rs)
+    takeResults :: [T.QueryResult] -> [T.Match]
+    takeResults = take maxResults . nub . foldl1 (++) . map T.matches
+
+
+-- | executes 'runQueries'. Log warning and errors, automatically retry.
+-- Return a Nothing on error, otherwise a Just.
+maybeQueries :: (BS.ByteString -> IO ()) -> Configuration -> [Put] -> IO (Maybe [T.QueryResult])
+maybeQueries logCallback conf queries = do
+  result <- runQueries conf queries
+  case result of
+    T.Ok r           -> return (Just r)
+    T.Retry msg      -> logCallback msg  >> maybeQueries logCallback conf queries
+    T.Warning w r    -> logCallback w    >> return (Just r)
+    T.Error code msg ->
+      logCallback (BS.concat ["Error code ",BS8.pack $ show code,". ",msg]) >> return Nothing
+
 -- | TODO: hide this function
 getResponse :: Handle -> IO (T.Status, BS.ByteString)
 getResponse conn = do
@@ -229,7 +258,7 @@ getResponse conn = do
   response <- BS.hGet conn (fromIntegral len)
   return (status, response)
 
--- | use with runQueries to run batched queries
+-- | use with runQueries to pipeline a batch of queries
 addQuery :: Configuration -> String -> String -> String -> Put
 addQuery cfg query indexes comment = do
     numC cfg [ offset
