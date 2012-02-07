@@ -1,5 +1,5 @@
 Name:            sphinx
-Version:         0.5.3
+Version:         0.5.3.1
 Synopsis:        Haskell bindings to the Sphinx full-text searching daemon.
 Description:     Haskell bindings to the Sphinx full-text searching daemon. Compatible with Sphinx version 2.0
 Category:        Text, Search, Database
@@ -11,6 +11,8 @@ homepage:        https://github.com/gregwebs/haskell-sphinx-client
 
 cabal-version:   >= 1.2
 Build-Type:      Simple
+
+extra-source-files: README.md
 
 Flag version-1-1-beta
   Description: By default this library is compatible with version 2.0 beta of Sphinx.

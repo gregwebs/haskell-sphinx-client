@@ -4,8 +4,8 @@ Version 0.4 is Compatible with sphinx version 1.1-beta
 Version 0.5 is Compatible with sphinx version 2.0-beta, but you can pass the version-one-one build flag.
 [On hackage](http://hackage.haskell.org/package/sphinx).
 
-Usage
------
+# Usage
+
 `query` executes a single query.
 `runQueries` executes multiple queries at once that were created them with `addQuery`
 
@@ -19,6 +19,29 @@ You will probably need to import the types also:
     import qualified Text.Search.Sphinx.Types as SphinxT
 
 There is also an `Indexable` module for generating an xml file of data to be indexed
+
+## runQueries helpers
+
+`runQueries` pipelines multiple queries together. If you are trying to combine the results, there are some helpers such as `maybeQueries` and `resultsToMatches`
+
+~~~~~~ {.haskell}
+      mr <- Sphinx.maybeQueries sphinxLogger sphinxConfig [
+                 addQuery "db1" query1
+               , addQuery "db2" query1
+               , addQuery "db1" query2
+               , addQuery "db2" query2
+               ]
+      case mr of
+        Nothing -> return Nothing
+        Just rs -> do
+          let combined = Sphinx.resultsToMatches 20 rs
+          if null combined
+             then return Nothing
+             else return $ Just combined
+~~~~~~
+
+
+
 
 Details
 =======
