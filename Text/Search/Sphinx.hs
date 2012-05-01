@@ -71,7 +71,7 @@ escapeString (x:xs) = if x `elem` escapedChars
 -- | The 'query' function runs a single query against the Sphinx daemon.
 --   To pipeline multiple queries in a batch, use addQuery and runQueries
 query :: Configuration -- ^ The configuration
-      -> String        -- ^ The indexes, "*" means every index
+      -> String        -- ^ The indexes, \"*\" means every index
       -> Text        -- ^ The query string
       -> IO (T.Result T.QueryResult) -- ^ just one search result back
 query config indexes search = do
@@ -93,7 +93,7 @@ query config indexes search = do
 
 -- | Prepare a commentless query over all indexes
 simpleQuery :: Text  -- ^ The query string
-            -> T.Query -- ^ A query value that can be sent to @runQueries@
+            -> T.Query -- ^ A query value that can be sent to 'runQueries'
 simpleQuery q = T.Query q "*" X.empty
 
 connect :: String -> Int -> IO Handle
@@ -108,7 +108,7 @@ connect host port = do
 -- | TODO: add configuration options
 buildExcerpts :: ExConf.ExcerptConfiguration -- ^ Contains host and port for connection and optional configuration for buildExcerpts
               -> [String]               -- ^ list of document contents to be highlighted
-              -> String                 -- ^ The indexes, "*" means every index
+              -> String                 -- ^ The indexes, \"*\" means every index
               -> String                 -- ^ The query string to use for excerpts
               -> IO (T.Result [BS.ByteString]) -- ^ the documents with excerpts highlighted
 buildExcerpts config docs indexes words = do

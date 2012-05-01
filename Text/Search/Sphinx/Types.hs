@@ -8,10 +8,10 @@ import Data.Int (Int64)
 import Data.Maybe (Maybe, isJust)
 import Data.Text (Text,empty)
 
--- | Data structure representing one query. It can be sent with @runQueries@
--- or @runQueries'@ to the server in batch mode.
+-- | Data structure representing one query. It can be sent with 'runQueries'
+-- or 'runQueries'' to the server in batch mode.
 data Query = Query { queryString :: Text -- ^ The actual query string
-                   , queryIndexes :: String -- ^ Which indexes to search on. Use "*" for all indexes
+                   , queryIndexes :: String -- ^ The indexes, \"*\" means every index
                    , queryComment :: Text  -- ^ A comment string.
                    } deriving (Show)
 

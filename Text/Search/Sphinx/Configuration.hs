@@ -52,7 +52,7 @@ data Configuration = Configuration {
   , maxQueryTime :: Int
     -- | Per-field-name weights
   , fieldWeights :: [(String, Int)]
-    -- | attributes to select, defaults to '*'
+    -- | attributes to select, defaults to \"*\"
   , selectClause :: String -- setSelect in regular API
 }
  deriving (Show)
