@@ -12,6 +12,7 @@ module Text.Search.Sphinx ( module Text.Search.Sphinx
 
 import qualified Text.Search.Sphinx.Types as T (
   Match,
+  Query(..),
   VerCommand(VcSearch, VcExcerpt),
   SearchdCommand(ScSearch, ScExcerpt),
   Filter, Filter(..),
@@ -37,6 +38,9 @@ import Data.Bits ((.|.))
 
 import Prelude hiding (filter, tail)
 import Data.List (nub)
+
+import Data.Text (Text)
+import qualified Data.Text as X
 
 {- the funnest way to debug this is to run the same query with an existing working client and look at the difference
  - sudo tcpflow -i lo dst port 9306 
@@ -77,6 +81,11 @@ query config indexes search = do
                         T.QueryOk result        -> T.Warning warning result
                         T.QueryWarning w result -> T.Warning (BS.append warning w) result
                         T.QueryError code e     -> T.Error code e
+
+-- | Prepare a commentless query over all indexes
+simpleQuery :: Text  -- ^ The query string
+            -> T.Query -- ^ A query value that can be sent to @runQueries@
+simpleQuery q = T.Query q "*" X.empty
 
 connect :: String -> Int -> IO Handle
 connect host port = do
