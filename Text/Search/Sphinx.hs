@@ -24,7 +24,7 @@ import Text.Search.Sphinx.Configuration (Configuration(..), defaultConfig)
 import qualified Text.Search.Sphinx.ExcerptConfiguration as ExConf (ExcerptConfiguration(..))
 import Text.Search.Sphinx.Get (times, getResult, readHeader, getStr)
 import Text.Search.Sphinx.Put (num, num64, enum, list, numC, strC, foldPuts,
-                              numC64, stringIntList, str, cmd, verCmd)
+                              numC64, stringIntList, str, txt, cmd, verCmd)
 
 import Data.Binary.Put (Put, runPut)
 import Data.Binary.Get (runGet, getWord32be)
@@ -41,6 +41,7 @@ import Data.List (nub)
 
 import Data.Text (Text)
 import qualified Data.Text as X
+import qualified Data.Text.ICU.Convert as ICU
 
 {- the funnest way to debug this is to run the same query with an existing working client and look at the difference
  - sudo tcpflow -i lo dst port 9306 
@@ -63,10 +64,10 @@ escapeString (x:xs) = if x `elem` escapedChars
 --   To pipeline multiple queries in a batch, use addQuery and runQueries
 query :: Configuration -- ^ The configuration
       -> String        -- ^ The indexes, "*" means every index
-      -> String        -- ^ The query string
+      -> Text        -- ^ The query string
       -> IO (T.Result T.QueryResult) -- ^ just one search result back
 query config indexes search = do
-    let q = addQuery config search indexes ""
+    let q = T.Query search indexes X.empty
     results <- runQueries' config [q]
     -- same as toSearchResult, but we know there is just one query
     -- could just remove and use runQueries in the future
@@ -153,10 +154,10 @@ buildExcerpts config docs indexes words = do
       ])
 
 
--- | Use with addQuery to pipeline multiple queries.
+-- | Make multiple queries at once, using a list of 'T.Query'.
 -- For a single query, just use the query method
 -- Easier handling of query result than runQueries'
-runQueries :: Configuration -> [Put] -> IO (T.Result [T.QueryResult])
+runQueries :: Configuration -> [T.Query] -> IO (T.Result [T.QueryResult])
 runQueries cfg qs = runQueries' cfg qs >>= return . toSearchResult
   where
     --   with batched queries, each query can have an error code,
@@ -192,17 +193,17 @@ runQueries cfg qs = runQueries' cfg qs >>= return . toSearchResult
 
 -- | lower level- called by 'runQueries'
 -- | This may be useful for debugging problems- warning messages won't get compressed
-runQueries' :: Configuration -> [Put] -> IO (T.Result [T.SingleResult])
+runQueries' :: Configuration -> [T.Query] -> IO (T.Result [T.SingleResult])
 runQueries' config qs = do
     conn <- connect (host config) (port config)
-    BS.hPut conn request
+    conv <- ICU.open (encoding config) Nothing
+    let queryReq = foldPuts $ map (serializeQuery config conv) qs
+    BS.hPut conn (request queryReq)
     hFlush conn
     getSearchResult conn
   where 
     numQueries = length qs
-    queryReq = foldPuts qs
-
-    request = runPut $ do
+    request qr = runPut $ do
                 cmd T.ScSearch
                 verCmd T.VcSearch
                 num $ 
@@ -211,12 +212,12 @@ runQueries' config qs = do
 #else
                       8
 #endif
-                        + (fromEnum $ BS.length (runPut queryReq))
+                        + (fromEnum $ BS.length (runPut qr))
 #ifndef ONE_ONE_BETA
                 num 0
 #endif
                 num numQueries
-                queryReq
+                qr
 
     getSearchResult :: Handle -> IO (T.Result [T.SingleResult])
     getSearchResult conn = do
@@ -246,7 +247,7 @@ resultsToMatches maxResults = combine
 
 -- | executes 'runQueries'. Log warning and errors, automatically retry.
 -- Return a Nothing on error, otherwise a Just.
-maybeQueries :: (BS.ByteString -> IO ()) -> Configuration -> [Put] -> IO (Maybe [T.QueryResult])
+maybeQueries :: (BS.ByteString -> IO ()) -> Configuration -> [T.Query] -> IO (Maybe [T.QueryResult])
 maybeQueries logCallback conf queries = do
   result <- runQueries conf queries
   case result of
@@ -268,15 +269,15 @@ getResponse conn = do
   return (status, response)
 
 -- | use with runQueries to pipeline a batch of queries
-addQuery :: Configuration -> String -> String -> String -> Put
-addQuery cfg query indexes comment = do
+serializeQuery :: Configuration -> ICU.Converter -> T.Query -> Put
+serializeQuery cfg conv (T.Query qry indexes comment) = do
     numC cfg [ offset
              , limit
              , fromEnum . mode
              , fromEnum . ranker
              , fromEnum . sort]
     str (sortBy cfg)
-    str query
+    txt conv qry
     list num (weights cfg)
     str indexes
     num 1                     -- id64 range marker
@@ -296,7 +297,7 @@ addQuery cfg query indexes comment = do
     stringIntList (indexWeights cfg)
     num (maxQueryTime cfg)
     stringIntList (fieldWeights cfg)
-    str comment
+    txt conv comment
     num 0 -- attribute overrides (none)
     str (selectClause cfg) -- select-list
     where
