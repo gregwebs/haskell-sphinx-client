@@ -8,6 +8,8 @@ data Configuration = Configuration {
     host :: String
     -- | The portnumber of the Sphinx daemon
   , port :: Int
+    -- | Encoding used to encode queries to the server, and decode server responses
+  , encoding :: String
     -- | Per-field weights
   , weights :: [Int]
     -- | How many records to seek from result-set start (default is 0)
@@ -59,6 +61,7 @@ data Configuration = Configuration {
 defaultConfig = Configuration {
                   port          = 3312
                 , host          = "127.0.0.1"
+                , encoding      = "UTF-8"
                 , weights       = []
                 , offset        = 0
                 , limit         = 20
