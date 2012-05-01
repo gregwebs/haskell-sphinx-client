@@ -6,7 +6,15 @@
 -- resetFilters, resetGroupBy
 -- updateAttributes,
 -- buildKeyWords, escapeString, status, open, close
-module Text.Search.Sphinx ( module Text.Search.Sphinx
+module Text.Search.Sphinx 
+  ( escapeString
+  , query
+  , buildExcerpts
+  , runQueries
+  , runQueries'
+  , resultsToMatches
+  , maybeQueries
+  , T.Query(..), simpleQuery
   , Configuration(..), defaultConfig
   ) where
 
@@ -257,7 +265,6 @@ maybeQueries logCallback conf queries = do
     T.Error code msg ->
       logCallback (BS.concat ["Error code ",BS8.pack $ show code,". ",msg]) >> return Nothing
 
--- | TODO: hide this function
 getResponse :: Handle -> IO (T.Status, BS.ByteString)
 getResponse conn = do
   header <- BS.hGet conn 8
