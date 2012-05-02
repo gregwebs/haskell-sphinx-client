@@ -7,6 +7,8 @@ data ExcerptConfiguration = ExcerptConfiguration {
     host :: String
     -- | The portnumber of the Sphinx daemon
   , port :: Int
+    -- | The encoding the Sphinx daemon is using
+  , encoding :: String
   , beforeMatch :: String
   , afterMatch :: String
   , chunkSeparator :: String
@@ -33,6 +35,7 @@ data ExcerptConfiguration = ExcerptConfiguration {
 defaultConfig = ExcerptConfiguration {
     port          = 3312
   , host          = "127.0.0.1"
+  , encoding      = "utf8"
   , beforeMatch = "<b>"
   , afterMatch = "</b>"
   , chunkSeparator = "..."

@@ -26,6 +26,8 @@ readList f = do num <- getNum
                 num `times` f
 times = replicateM
 
+getTxt conv = liftM (ICU.toUnicode conv) getStrStr
+
 getStr = do len <- getNum
             getLazyByteString (fromIntegral len)
 

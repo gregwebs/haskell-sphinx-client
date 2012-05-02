@@ -30,7 +30,7 @@ import qualified Text.Search.Sphinx.Types as T (
 
 import Text.Search.Sphinx.Configuration (Configuration(..), defaultConfig)
 import qualified Text.Search.Sphinx.ExcerptConfiguration as ExConf (ExcerptConfiguration(..))
-import Text.Search.Sphinx.Get (times, getResult, readHeader, getStr)
+import Text.Search.Sphinx.Get (times, getResult, readHeader, getStr, getTxt)
 import Text.Search.Sphinx.Put (num, num64, enum, list, numC, strC, foldPuts,
                               numC64, stringIntList, str, txt, cmd, verCmd)
 
@@ -107,23 +107,24 @@ connect host port = do
 
 -- | TODO: add configuration options
 buildExcerpts :: ExConf.ExcerptConfiguration -- ^ Contains host and port for connection and optional configuration for buildExcerpts
-              -> [String]               -- ^ list of document contents to be highlighted
+              -> [Text]               -- ^ list of document contents to be highlighted
               -> String                 -- ^ The indexes, \"*\" means every index
-              -> String                 -- ^ The query string to use for excerpts
-              -> IO (T.Result [BS.ByteString]) -- ^ the documents with excerpts highlighted
+              -> Text                  -- ^ The query string to use for excerpts
+              -> IO (T.Result [Text]) -- ^ the documents with excerpts highlighted
 buildExcerpts config docs indexes words = do
   conn <- connect (ExConf.host config) (ExConf.port config)
-  let req = runPut $ makeBuildExcerpt addExcerpt
+  conv <- ICU.open (ExConf.encoding config) Nothing
+  let req = runPut $ makeBuildExcerpt (addExcerpt conv)
   BS.hPut conn req
   hFlush conn
   (status, response) <- getResponse conn
   case status of
-    T.OK      -> return $ T.Ok (getResults response)
-    T.WARNING -> return $ T.Warning (runGet getStr response) (getResults response)
+    T.OK      -> return $ T.Ok (getResults response conv)
+    T.WARNING -> return $ T.Warning (runGet getStr response) (getResults response conv)
     T.RETRY   -> return $ T.Retry (errorMessage response)
     T.ERROR n -> return $ T.Error n (errorMessage response)
   where
-    getResults response = runGet ((length docs) `times` getStr) response
+    getResults response conv = runGet ((length docs) `times` getTxt conv) response
     errorMessage response = BS.tail (BS.tail (BS.tail (BS.tail response)))
 
     makeBuildExcerpt putExcerpt = do
@@ -132,19 +133,19 @@ buildExcerpts config docs indexes words = do
       num $ fromEnum $ BS.length (runPut putExcerpt)
       putExcerpt
 
-    addExcerpt :: Put
-    addExcerpt = do
+    addExcerpt :: ICU.Converter -> Put
+    addExcerpt conv = do
       num 0 -- mode
       num $ excerptFlags config
       str indexes
-      str words
+      txt conv words
       strC config [ExConf.beforeMatch, ExConf.afterMatch, ExConf.chunkSeparator]
       numC config [ExConf.limit, ExConf.around, ExConf.limitPassages, ExConf.limitWords, ExConf.startPassageId]
       str $ ExConf.htmlStripMode config
 #ifndef ONE_ONE_BETA
       str $ ExConf.passageBoundary config
 #endif
-      list str docs
+      list (txt conv) docs
 
     modeFlag :: ExConf.ExcerptConfiguration -> (ExConf.ExcerptConfiguration -> Bool) -> Int -> Int
     modeFlag cfg setting value = if setting cfg then value else 0
