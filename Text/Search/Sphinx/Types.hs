@@ -168,7 +168,7 @@ data QueryResult = QueryResult {
       -- | Total amount of matching documents in index.
     , totalFound :: Int
       -- | processed words with the number of docs and the number of hits.
-    , words :: [(ByteString, Int, Int)]
+    , words :: [(Text, Int, Int)]
       -- | List of attribute names returned in the result.
       -- | The Match will contain just the attribute values in the same order.
     , attributeNames :: [ByteString]
@@ -204,6 +204,6 @@ instance Eq Match where
 data Attr = AttrMulti [Attr]
           | AttrUInt  Int
           | AttrBigInt Int64
-          | AttrString ByteString
+          | AttrString Text
           | AttrFloat Float
           deriving (Show)

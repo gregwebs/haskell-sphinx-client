@@ -208,7 +208,7 @@ runQueries' config qs = do
     let queryReq = foldPuts $ map (serializeQuery config conv) qs
     BS.hPut conn (request queryReq)
     hFlush conn
-    getSearchResult conn
+    getSearchResult conn conv
   where 
     numQueries = length qs
     request qr = runPut $ do
@@ -227,17 +227,17 @@ runQueries' config qs = do
                 num numQueries
                 qr
 
-    getSearchResult :: Handle -> IO (T.Result [T.SingleResult])
-    getSearchResult conn = do
+    getSearchResult :: Handle -> ICU.Converter -> IO (T.Result [T.SingleResult])
+    getSearchResult conn conv = do
       (status, response) <- getResponse conn
       case status of
-        T.OK      -> return $ T.Ok (getResults response)
-        T.WARNING -> return $ T.Warning (runGet getStr response) (getResults response)
+        T.OK      -> return $ T.Ok (getResults response conv)
+        T.WARNING -> return $ T.Warning (runGet getStr response) (getResults response conv)
         T.RETRY   -> return $ T.Retry (errorMessage response)
         T.ERROR n -> return $ T.Error n (errorMessage response)
       where
-        getResults response = runGet (numQueries `times` getResult) response
-        errorMessage response = BS.tail (BS.tail (BS.tail (BS.tail response)))
+        getResults response conv = runGet (numQueries `times` getResult conv) response
+        errorMessage response    = BS.tail (BS.tail (BS.tail (BS.tail response)))
 
 
 -- | Combine results from 'runQueries' into matches.
