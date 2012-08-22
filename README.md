@@ -59,4 +59,4 @@ Greg Weber improved the library and updated it for the latest version of sphinx,
 Usage of this haskell client
 ----------------------------
 Tupil originally wrote this for use on a commercial project.
-This sphinx package is now finding some use in the Yesod community. [Here is a well described example usage](http://www.yesodweb.com/book/sphinx), but do keep in mind there is no requirement to tie the *generation* of sphinx documents to your web application, just your database. Used in Yesod applications yesdoweb.com and eatnutrients.com.
+This sphinx package is now finding some use in the Yesod community. [Here is a well described example usage](https://github.com/yesodweb/yesod/wiki/Sphinx-Search), but do keep in mind there is no requirement to tie the *generation* of sphinx documents to your web application, just your database. Used in Yesod applications yesdoweb.com and eatnutrients.com.
