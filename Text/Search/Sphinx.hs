@@ -8,6 +8,7 @@
 -- buildKeyWords, escapeString, status, open, close
 module Text.Search.Sphinx 
   ( escapeString
+  , escapeText
   , query
   , buildExcerpts
   , runQueries
@@ -67,6 +68,11 @@ escapeString [] = []
 escapeString (x:xs) = if x `elem` escapedChars
                         then '\\':x:escapeString xs
                         else      x:escapeString xs
+
+escapeText :: Text -> Text
+escapeText = X.concatMap (\x -> if x `elem` escapedChars
+                                 then X.pack $ '\\':[x]
+                                 else X.singleton x)
 
 -- | The 'query' function runs a single query against the Sphinx daemon.
 --   To pipeline multiple queries in a batch, use addQuery and runQueries
