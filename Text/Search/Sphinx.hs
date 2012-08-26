@@ -5,10 +5,9 @@
 -- setFilterFloatRange, setGeoAnchor
 -- resetFilters, resetGroupBy
 -- updateAttributes,
--- buildKeyWords, escapeString, status, open, close
+-- buildKeyWords, status, open, close
 module Text.Search.Sphinx 
-  ( escapeString
-  , escapeText
+  ( escapeText
   , query
   , buildExcerpts
   , runQueries
