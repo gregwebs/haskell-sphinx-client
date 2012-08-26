@@ -4,22 +4,19 @@ import qualified Text.Search.Sphinx.Types as T
 
 -- | The configuration for a query
 --
--- A note about encodings: The encoding specified here is also the one used to
--- decode wthe server's repsonses. Specifically,
--- 
--- * @'T.words' 'T.QueryResult' :: Text@
---
--- * @'T.AttrString' :: Text -> 'T.Attr'@
---
--- rely on it.
+-- A note about encodings: The encoding specified here is used to encode
+-- every @Text@ value that is sent to the server, and it used to decode all
+-- of the server's answers, including error messages.
 --
 -- If the specified encoding doesn't support characters sent to the server,
--- they will silently be substituted with the byte value of @\'\\SUB\'@ before transmission.
+-- they will silently be substituted with the byte value of @\'\\SUB\' ::
+-- 'Char'@ before transmission.
 --
 -- If the server sends a byte value back that the encoding doesn't understand,
--- the bytes are going to be converted into special values as specified by that
--- encoding. When decoding invalid UTF-8, for example, all invalid bytes are
--- going to be substituted with @\'\\65533\' :: 'Char'@.
+-- the affected bytes will be converted into special values as
+-- specified by that encoding. For example, when decoding invalid UTF-8,
+-- all invalid bytes are going to be substituted with @\'\\65533\' ::
+-- 'Char'@.
 --
 data Configuration = Configuration {
     -- | The hostname of the Sphinx daemon

@@ -7,7 +7,7 @@ data ExcerptConfiguration = ExcerptConfiguration {
     host :: String
     -- | The portnumber of the Sphinx daemon
   , port :: Int
-    -- | The encoding the Sphinx daemon is using
+    -- | Encoding used to encode queries to the server, and decode server responses
   , encoding :: String
   , beforeMatch :: String
   , afterMatch :: String

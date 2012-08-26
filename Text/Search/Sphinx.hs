@@ -60,22 +60,16 @@ import Debug.Trace; debug a = trace (show a) a
 escapedChars :: String
 escapedChars =  '"':'\\':"-!@~/()*[]="
 
--- | escape all possible meta characters.
---   most of these characters only need to be escaped in certain contexts
+-- | Escape all possible meta characters.
+--   Most of these characters only need to be escaped in certain contexts
 --   however, in normal searching they will all be ignored
-escapeString :: String -> String
-escapeString [] = []
-escapeString (x:xs) = if x `elem` escapedChars
-                        then '\\':x:escapeString xs
-                        else      x:escapeString xs
-
 escapeText :: Text -> Text
 escapeText = X.concatMap (\x -> if x `elem` escapedChars
                                  then X.pack $ '\\':[x]
                                  else X.singleton x)
 
 -- | The 'query' function runs a single query against the Sphinx daemon.
---   To pipeline multiple queries in a batch, use addQuery and runQueries
+--   To pipeline multiple queries in a batch, use and 'runQueries'.
 query :: Configuration -- ^ The configuration
       -> String        -- ^ The indexes, \"*\" means every index
       -> Text        -- ^ The query string
@@ -97,7 +91,9 @@ query config indexes search = do
                         T.QueryWarning w result -> T.Warning (X.append warning w) result
                         T.QueryError code e     -> T.Error code e
 
--- | Prepare a commentless query over all indexes
+-- | This is a convenience function which accepts a search string and
+-- builds a query for that string over all indexes without attaching
+-- comments to the queries.
 simpleQuery :: Text  -- ^ The query string
             -> T.Query -- ^ A query value that can be sent to 'runQueries'
 simpleQuery q = T.Query q "*" X.empty
@@ -206,8 +202,8 @@ runQueries cfg qs = runQueries' cfg qs >>= return . toSearchResult
           T.QueryWarning w result -> fromWarn (X.append warning w) rs (result:acc)
           T.QueryError code e     -> T.Error code e
 
--- | lower level- called by 'runQueries'
--- | This may be useful for debugging problems- warning messages won't get compressed
+-- | Lower level- called by 'runQueries'.
+-- This may be useful for debugging problems- warning messages won't get compressed
 runQueries' :: Configuration -> [T.Query] -> IO (T.Result [T.SingleResult])
 runQueries' config qs = do
     conn <- connect (host config) (port config)
