@@ -177,15 +177,15 @@ data QueryResult = QueryResult {
 
 -- | a single query result, runQueries returns a list of these
 data SingleResult = QueryOk QueryResult
-                  | QueryWarning ByteString QueryResult
-                  | QueryError Int ByteString
+                  | QueryWarning Text QueryResult
+                  | QueryError Int Text
                   deriving (Show)
 
 -- | a result returned from searchd
 data Result a = Ok a
-              | Warning ByteString a
-              | Error Int ByteString
-              | Retry ByteString
+              | Warning Text a
+              | Error Int Text
+              | Retry Text
               deriving (Show)
 
 data Match = Match {

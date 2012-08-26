@@ -94,7 +94,7 @@ query config indexes search = do
       T.Retry   retry           -> T.Retry retry
       T.Warning warning (result:results) -> case result of
                         T.QueryOk result        -> T.Warning warning result
-                        T.QueryWarning w result -> T.Warning (BS.append warning w) result
+                        T.QueryWarning w result -> T.Warning (X.append warning w) result
                         T.QueryError code e     -> T.Error code e
 
 -- | Prepare a commentless query over all indexes
@@ -126,12 +126,12 @@ buildExcerpts config docs indexes words = do
   (status, response) <- getResponse conn
   case status of
     T.OK      -> return $ T.Ok (getResults response conv)
-    T.WARNING -> return $ T.Warning (runGet getStr response) (getResults response conv)
-    T.RETRY   -> return $ T.Retry (errorMessage response)
-    T.ERROR n -> return $ T.Error n (errorMessage response)
+    T.WARNING -> return $ T.Warning (runGet (getTxt conv) response) (getResults response conv)
+    T.RETRY   -> return $ T.Retry (errorMessage conv response)
+    T.ERROR n -> return $ T.Error n (errorMessage conv response)
   where
     getResults response conv = runGet ((length docs) `times` getTxt conv) response
-    errorMessage response = BS.tail (BS.tail (BS.tail (BS.tail response)))
+    errorMessage conv response = runGet (getTxt conv) (BS.drop 4 response)
 
     makeBuildExcerpt putExcerpt = do
       cmd    T.ScExcerpt
@@ -186,24 +186,24 @@ runQueries cfg qs = runQueries' cfg qs >>= return . toSearchResult
     toSearchResult :: T.Result [T.SingleResult] -> T.Result [T.QueryResult]
     toSearchResult results =
         case results of
-          T.Ok rs              -> fromOk rs [] BS.empty
+          T.Ok rs              -> fromOk rs [] X.empty
           T.Warning warning rs -> fromWarn warning rs []
           T.Retry   retry      -> T.Retry retry
           T.Error   code error -> T.Error code error
       where
-        fromOk :: [T.SingleResult] -> [T.QueryResult] -> BS.ByteString -> T.Result [T.QueryResult]
-        fromOk [] acc warn | BS.null warn = T.Ok acc
+        fromOk :: [T.SingleResult] -> [T.QueryResult] -> Text -> T.Result [T.QueryResult]
+        fromOk [] acc warn | X.null warn = T.Ok acc
                            | otherwise = T.Warning warn acc
         fromOk (r:rs) acc warn = case r of
           T.QueryOk result        -> fromOk rs (acc ++ [result]) warn
-          T.QueryWarning w result -> fromOk rs (acc ++ [result]) (BS.append warn w)
+          T.QueryWarning w result -> fromOk rs (acc ++ [result]) (X.append warn w)
           T.QueryError code e     -> T.Error code e
 
-        fromWarn :: BS.ByteString -> [T.SingleResult] -> [T.QueryResult] -> T.Result [T.QueryResult]
+        fromWarn :: Text -> [T.SingleResult] -> [T.QueryResult] -> T.Result [T.QueryResult]
         fromWarn warning [] acc = T.Warning warning acc
         fromWarn warning (r:rs) acc = case r of
           T.QueryOk result        -> fromWarn warning rs (result:acc)
-          T.QueryWarning w result -> fromWarn (BS.append warning w) rs (result:acc)
+          T.QueryWarning w result -> fromWarn (X.append warning w) rs (result:acc)
           T.QueryError code e     -> T.Error code e
 
 -- | lower level- called by 'runQueries'
@@ -239,12 +239,12 @@ runQueries' config qs = do
       (status, response) <- getResponse conn
       case status of
         T.OK      -> return $ T.Ok (getResults response conv)
-        T.WARNING -> return $ T.Warning (runGet getStr response) (getResults response conv)
-        T.RETRY   -> return $ T.Retry (errorMessage response)
-        T.ERROR n -> return $ T.Error n (errorMessage response)
+        T.WARNING -> return $ T.Warning (runGet (getTxt conv) response) (getResults response conv)
+        T.RETRY   -> return $ T.Retry (errorMessage conv response)
+        T.ERROR n -> return $ T.Error n (errorMessage conv response)
       where
         getResults response conv = runGet (numQueries `times` getResult conv) response
-        errorMessage response    = BS.tail (BS.tail (BS.tail (BS.tail response)))
+        errorMessage conv response = runGet (getTxt conv) (BS.drop 4 response)
 
 
 -- | Combine results from 'runQueries' into matches.
@@ -262,7 +262,7 @@ resultsToMatches maxResults = combine
 
 -- | executes 'runQueries'. Log warning and errors, automatically retry.
 -- Return a Nothing on error, otherwise a Just.
-maybeQueries :: (BS.ByteString -> IO ()) -> Configuration -> [T.Query] -> IO (Maybe [T.QueryResult])
+maybeQueries :: (Text -> IO ()) -> Configuration -> [T.Query] -> IO (Maybe [T.QueryResult])
 maybeQueries logCallback conf queries = do
   result <- runQueries conf queries
   case result of
@@ -270,7 +270,7 @@ maybeQueries logCallback conf queries = do
     T.Retry msg      -> logCallback msg  >> maybeQueries logCallback conf queries
     T.Warning w r    -> logCallback w    >> return (Just r)
     T.Error code msg ->
-      logCallback (BS.concat ["Error code ",BS8.pack $ show code,". ",msg]) >> return Nothing
+      logCallback (X.concat ["Error code ",X.pack $ show code,". ",msg]) >> return Nothing
 
 getResponse :: Handle -> IO (T.Status, BS.ByteString)
 getResponse conn = do

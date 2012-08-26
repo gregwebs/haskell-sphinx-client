@@ -39,10 +39,10 @@ getResult :: ICU.Converter -> Get (T.SingleResult)
 getResult conv = do
   statusNum <- getNum
   case T.toQueryStatus statusNum of
-    T.QueryERROR n -> do e <- getStr
+    T.QueryERROR n -> do e <- getTxt conv
                          return $ T.QueryError statusNum e
     T.QueryOK      -> getResultOk >>= return . T.QueryOk
-    T.QueryWARNING -> do w <- getStr
+    T.QueryWARNING -> do w <- getTxt conv
                          getResultOk >>= return . (T.QueryWarning w)
   where
     getResultOk = do
