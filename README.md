@@ -45,7 +45,7 @@ server-side query optimization in certain cases. Refer to the
 [Sphinx manual](http://sphinxsearch.com/docs/2.0.4/api-func-addquery.html)
 for details.) The function `runQueries` pipelines multiple queries together. If you
 are trying to combine the results, there are some helpers such as
-`maybeQueries` and `resultsToMatches`
+`maybeQueries` and `resultsToMatches`.
 
 ~~~~~~ {.haskell}
       mr <- Sphinx.maybeQueries sphinxLogger sphinxConfig [
@@ -62,6 +62,10 @@ are trying to combine the results, there are some helpers such as
              then return Nothing
              else return $ Just combined
 ~~~~~~
+
+**A note** for those transitioning from `0.5.*` to `0.6`: the function `addQueries`
+has been removed. You can now directly send a list of `Query` to the server by using
+`runQueries`, which will handle the serialization for you behind the scenes.
 
 ## Encoding
 
