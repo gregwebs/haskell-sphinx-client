@@ -6,30 +6,53 @@ Version 0.5 is Compatible with sphinx version 2.0-beta, but you can pass the ver
 
 # Usage
 
-`query` executes a single query.
-`runQueries` executes multiple queries at once that were created them with `addQuery`
+## Constructing Queries
 
-In extended mode you may want to escape special query characters with `escapeString`
+The data type `Query` is used to represent queries to the server. It specifies
+a search string and the indexes to run the query on, as well as a comment,
+which may be the empty string. In order to run a query on all indexes, use
+`"*"` in the index field.
 
-`buildExcerpts` creates highlighted excerpts
+The convenience function `query` executes a single query and constructs the
+`Query` by itself, so you don't have to.
 
-You will probably need to import the types also:
+To execute more than one `Query`, use `runQueries`. Details are below in the
+section [*Batch Queries*](#batch-queries). To construct simple queries, you can
+also use `simpleQuery :: Text -> Query` which constructs a `Query` over all
+indexes. Don't forget that you can use record updates on a `Query`.
+
+In extended mode you may want to escape special query characters with `escapeString`.
+
+All interaction with the server, including sending queries and receiving
+results, is based on the `Data.Text` string type. You might therefore want to
+enable the `OverloadedStrings` pragma.
+
+## Excerpts and XML Indexes
+
+`buildExcerpts` creates highlighted excerpts.
+
+You will probably need to import the types as well:
 
     import qualified Text.Search.Sphinx as Sphinx
     import qualified Text.Search.Sphinx.Types as SphinxT
 
-There is also an `Indexable` module for generating an xml file of data to be indexed
+There is also an `Indexable` module for generating an xml file of data to be indexed.
 
-## runQueries helpers
+## Batch Queries
 
-`runQueries` pipelines multiple queries together. If you are trying to combine the results, there are some helpers such as `maybeQueries` and `resultsToMatches`
+You can send more than one query per request to the server (which may enable
+server-side query optimization in certain cases. Refer to the
+[Sphinx manual](http://sphinxsearch.com/docs/2.0.4/api-func-addquery.html)
+for details.) The function `runQueries` pipelines multiple queries together. If you
+are trying to combine the results, there are some helpers such as
+`maybeQueries` and `resultsToMatches`
 
 ~~~~~~ {.haskell}
       mr <- Sphinx.maybeQueries sphinxLogger sphinxConfig [
-                 addQuery "db1" query1
-               , addQuery "db2" query1
-               , addQuery "db1" query2
-               , addQuery "db2" query2
+                 SphinxT.Query query1 "db1" ""
+               , SphinxT.Query query1 "db2" ""
+               , SphinxT.Query query2 "db1" ""
+               , SphinxT.Query query2 "db2" ""
                ]
       case mr of
         Nothing -> return Nothing
@@ -40,8 +63,19 @@ There is also an `Indexable` module for generating an xml file of data to be ind
              else return $ Just combined
 ~~~~~~
 
+## Encoding
 
+The sphinx server itself does not know about encodings except for the
+difference between single-byte encodings and multi-byte encodings. It assumes
+that all incoming queries are already properly encoded and matches the raw
+bytes it receives; the same holds for the results returned by the server. Hence
+the responsibilty for using the proper encoding (and decoding) routines lies
+with the caller.
 
+Version 0.6.0 of `haskell-sphinx-client` introduces the `encoding` field in
+both the `Configuration` data type and the `ExcerptConfiguration` data type.
+The library handles proper encoding and decoding in the background; just
+make sure you set the right encoding setting in the configuration!
 
 Details
 =======
