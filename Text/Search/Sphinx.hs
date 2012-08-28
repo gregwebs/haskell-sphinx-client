@@ -63,9 +63,8 @@ escapedChars =  '"':'\\':"-!@~/()*[]="
 --   Most of these characters only need to be escaped in certain contexts
 --   however, in normal searching they will all be ignored
 escapeText :: Text -> Text
-escapeText = X.concatMap (\x -> if x `elem` escapedChars
-                                 then X.pack $ '\\':[x]
-                                 else X.singleton x)
+escapeText = X.intercalate "\\" . breakBy (`elem` escapedChars)
+    where breakBy = X.groupBy . const . fmap not
 
 -- | The 'query' function runs a single query against the Sphinx daemon.
 --   To pipeline multiple queries in a batch, use and 'runQueries'.
