@@ -64,7 +64,8 @@ escapedChars =  '"':'\\':"-!@~/()*[]="
 --   however, in normal searching they will all be ignored
 escapeText :: Text -> Text
 escapeText = X.intercalate "\\" . breakBy (`elem` escapedChars)
-    where breakBy = X.groupBy . const . fmap not
+    where breakBy p t | X.null t  = [X.empty]
+                      | otherwise = (if p $ X.head t then ("":) else id) $ X.groupBy (\_ x -> not $ p x) t
 
 -- | The 'query' function runs a single query against the Sphinx daemon.
 --   To pipeline multiple queries in a batch, use and 'runQueries'.
