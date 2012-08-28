@@ -10,6 +10,8 @@ import Control.Monad
 import qualified Text.Search.Sphinx.Types as T
 import Data.Maybe (isJust, fromJust)
 
+import qualified Data.Text.ICU.Convert as ICU
+
 -- Utility functions
 getNum :: Get Int
 getNum = getWord32be >>= return . fromEnum
@@ -24,17 +26,23 @@ readList f = do num <- getNum
                 num `times` f
 times = replicateM
 
+getTxt conv = liftM (ICU.toUnicode conv) getStrStr
+
 getStr = do len <- getNum
             getLazyByteString (fromIntegral len)
 
-getResult :: Get (T.SingleResult)
-getResult = do
+-- Get a strict 'ByteString'.
+getStrStr = do len <- getNum
+               getByteString (fromIntegral len)
+
+getResult :: ICU.Converter -> Get (T.SingleResult)
+getResult conv = do
   statusNum <- getNum
   case T.toQueryStatus statusNum of
-    T.QueryERROR n -> do e <- getStr
+    T.QueryERROR n -> do e <- getTxt conv
                          return $ T.QueryError statusNum e
     T.QueryOK      -> getResultOk >>= return . T.QueryOk
-    T.QueryWARNING -> do w <- getStr
+    T.QueryWARNING -> do w <- getTxt conv
                          getResultOk >>= return . (T.QueryWarning w)
   where
     getResultOk = do
@@ -42,17 +50,18 @@ getResult = do
       attrs      <- readList readAttrPair
       matchCount <- getNum
       id64       <- getNum
-      matches    <- matchCount `times` readMatch (id64 > 0) (map snd attrs)
+      matches    <- matchCount `times` readMatch (id64 > 0) (map snd attrs) conv
       [total, totalFound, time, numWords] <- 4 `times` getNum
-      wrds       <- numWords `times` readWord
+      wrds       <- numWords `times` readWord conv
       return $ T.QueryResult matches total totalFound wrds (map fst attrs)
 
 
-readWord = do s <- getStr
-              [doc, hits] <- 2 `times` getNum
-              return (s, doc, hits)
+readWord conv = do
+    s <- getStrStr
+    [doc, hits] <- 2 `times` getNum
+    return (ICU.toUnicode conv s, doc, hits)
 
-readMatch isId64 attrs = do
+readMatch isId64 attrs conv = do
     doc <- if isId64 then getNum64 else (getNum >>= return . fromIntegral)
     weight <- getNum
     matchAttrs <- mapM readAttr attrs
@@ -60,7 +69,7 @@ readMatch isId64 attrs = do
   where
     readAttr (T.AttrTMulti attr)  = (readList (readAttr attr)) >>= return . T.AttrMulti
     readAttr T.AttrTBigInt    = getNum64 >>= return . T.AttrBigInt
-    readAttr T.AttrTString    = getStr  >>= return . T.AttrString
+    readAttr T.AttrTString    = getStrStr  >>= return . T.AttrString . ICU.toUnicode conv
     readAttr T.AttrTUInt      = getNum >>= return . T.AttrUInt
     readAttr T.AttrTFloat     = getFloat >>= return . T.AttrFloat
     readAttr _                = getNum  >>= return . T.AttrUInt

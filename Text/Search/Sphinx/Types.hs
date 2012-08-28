@@ -6,6 +6,14 @@ module Text.Search.Sphinx.Types (
 import Data.ByteString.Lazy (ByteString)
 import Data.Int (Int64)
 import Data.Maybe (Maybe, isJust)
+import Data.Text (Text,empty)
+
+-- | Data structure representing one query. It can be sent with 'runQueries'
+-- or 'runQueries'' to the server in batch mode.
+data Query = Query { queryString :: Text -- ^ The actual query string
+                   , queryIndexes :: String -- ^ The indexes, \"*\" means every index
+                   , queryComment :: Text  -- ^ A comment string.
+                   } deriving (Show)
 
 -- | Search commands
 data SearchdCommand = ScSearch
@@ -160,7 +168,7 @@ data QueryResult = QueryResult {
       -- | Total amount of matching documents in index.
     , totalFound :: Int
       -- | processed words with the number of docs and the number of hits.
-    , words :: [(ByteString, Int, Int)]
+    , words :: [(Text, Int, Int)]
       -- | List of attribute names returned in the result.
       -- | The Match will contain just the attribute values in the same order.
     , attributeNames :: [ByteString]
@@ -169,15 +177,15 @@ data QueryResult = QueryResult {
 
 -- | a single query result, runQueries returns a list of these
 data SingleResult = QueryOk QueryResult
-                  | QueryWarning ByteString QueryResult
-                  | QueryError Int ByteString
+                  | QueryWarning Text QueryResult
+                  | QueryError Int Text
                   deriving (Show)
 
 -- | a result returned from searchd
 data Result a = Ok a
-              | Warning ByteString a
-              | Error Int ByteString
-              | Retry ByteString
+              | Warning Text a
+              | Error Int Text
+              | Retry Text
               deriving (Show)
 
 data Match = Match {
@@ -196,6 +204,6 @@ instance Eq Match where
 data Attr = AttrMulti [Attr]
           | AttrUInt  Int
           | AttrBigInt Int64
-          | AttrString ByteString
+          | AttrString Text
           | AttrFloat Float
           deriving (Show)

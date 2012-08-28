@@ -3,11 +3,28 @@ module Text.Search.Sphinx.Configuration where
 import qualified Text.Search.Sphinx.Types as T
 
 -- | The configuration for a query
+--
+-- A note about encodings: The encoding specified here is used to encode
+-- every @Text@ value that is sent to the server, and it used to decode all
+-- of the server's answers, including error messages.
+--
+-- If the specified encoding doesn't support characters sent to the server,
+-- they will silently be substituted with the byte value of @\'\\SUB\' ::
+-- 'Char'@ before transmission.
+--
+-- If the server sends a byte value back that the encoding doesn't understand,
+-- the affected bytes will be converted into special values as
+-- specified by that encoding. For example, when decoding invalid UTF-8,
+-- all invalid bytes are going to be substituted with @\'\\65533\' ::
+-- 'Char'@.
+--
 data Configuration = Configuration {
     -- | The hostname of the Sphinx daemon
     host :: String
     -- | The portnumber of the Sphinx daemon
   , port :: Int
+    -- | Encoding used to encode queries to the server, and decode server responses
+  , encoding :: String
     -- | Per-field weights
   , weights :: [Int]
     -- | How many records to seek from result-set start (default is 0)
@@ -50,7 +67,7 @@ data Configuration = Configuration {
   , maxQueryTime :: Int
     -- | Per-field-name weights
   , fieldWeights :: [(String, Int)]
-    -- | attributes to select, defaults to '*'
+    -- | attributes to select, defaults to \"*\"
   , selectClause :: String -- setSelect in regular API
 }
  deriving (Show)
@@ -59,6 +76,7 @@ data Configuration = Configuration {
 defaultConfig = Configuration {
                   port          = 3312
                 , host          = "127.0.0.1"
+                , encoding      = "UTF-8"
                 , weights       = []
                 , offset        = 0
                 , limit         = 20
