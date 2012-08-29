@@ -70,7 +70,7 @@ escapeText = X.intercalate "\\" . breakBy (`elem` escapedChars)
 -- | The 'query' function runs a single query against the Sphinx daemon.
 --   To pipeline multiple queries in a batch, use and 'runQueries'.
 query :: Configuration -- ^ The configuration
-      -> String        -- ^ The indexes, \"*\" means every index
+      -> Text        -- ^ The indexes, \"*\" means every index
       -> Text        -- ^ The query string
       -> IO (T.Result T.QueryResult) -- ^ just one search result back
 query config indexes search = do
@@ -109,7 +109,7 @@ connect host port = do
 -- | TODO: add configuration options
 buildExcerpts :: ExConf.ExcerptConfiguration -- ^ Contains host and port for connection and optional configuration for buildExcerpts
               -> [Text]               -- ^ list of document contents to be highlighted
-              -> String                 -- ^ The indexes, \"*\" means every index
+              -> Text                 -- ^ The indexes, \"*\" means every index
               -> Text                  -- ^ The query string to use for excerpts
               -> IO (T.Result [Text]) -- ^ the documents with excerpts highlighted
 buildExcerpts config docs indexes words = do
@@ -138,7 +138,7 @@ buildExcerpts config docs indexes words = do
     addExcerpt conv = do
       num 0 -- mode
       num $ excerptFlags config
-      str indexes
+      txt conv indexes
       txt conv words
       strC config [ExConf.beforeMatch, ExConf.afterMatch, ExConf.chunkSeparator]
       numC config [ExConf.limit, ExConf.around, ExConf.limitPassages, ExConf.limitWords, ExConf.startPassageId]
@@ -288,7 +288,7 @@ serializeQuery cfg conv (T.Query qry indexes comment) = do
     str (sortBy cfg)
     txt conv qry
     list num (weights cfg)
-    str indexes
+    txt conv indexes
     num 1                     -- id64 range marker
     numC64 cfg [minId, maxId] -- id64 range
 
