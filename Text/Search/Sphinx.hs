@@ -5,13 +5,22 @@
 -- setFilterFloatRange, setGeoAnchor
 -- resetFilters, resetGroupBy
 -- updateAttributes,
--- buildKeyWords, escapeString, status, open, close
-module Text.Search.Sphinx ( module Text.Search.Sphinx
+-- buildKeyWords, status, open, close
+module Text.Search.Sphinx 
+  ( escapeText
+  , query
+  , buildExcerpts
+  , runQueries
+  , runQueries'
+  , resultsToMatches
+  , maybeQueries
+  , T.Query(..), simpleQuery
   , Configuration(..), defaultConfig
   ) where
 
 import qualified Text.Search.Sphinx.Types as T (
   Match,
+  Query(..),
   VerCommand(VcSearch, VcExcerpt),
   SearchdCommand(ScSearch, ScExcerpt),
   Filter, Filter(..),
@@ -21,9 +30,9 @@ import qualified Text.Search.Sphinx.Types as T (
 
 import Text.Search.Sphinx.Configuration (Configuration(..), defaultConfig)
 import qualified Text.Search.Sphinx.ExcerptConfiguration as ExConf (ExcerptConfiguration(..))
-import Text.Search.Sphinx.Get (times, getResult, readHeader, getStr)
+import Text.Search.Sphinx.Get (times, getResult, readHeader, getStr, getTxt)
 import Text.Search.Sphinx.Put (num, num64, enum, list, numC, strC, foldPuts,
-                              numC64, stringIntList, str, cmd, verCmd)
+                              numC64, stringIntList, str, txt, cmd, verCmd)
 
 import Data.Binary.Put (Put, runPut)
 import Data.Binary.Get (runGet, getWord32be)
@@ -38,6 +47,10 @@ import Data.Bits ((.|.))
 import Prelude hiding (filter, tail)
 import Data.List (nub)
 
+import Data.Text (Text)
+import qualified Data.Text as X
+import qualified Data.Text.ICU.Convert as ICU
+
 {- the funnest way to debug this is to run the same query with an existing working client and look at the difference
  - sudo tcpflow -i lo dst port 9306 
 import Debug.Trace; debug a = trace (show a) a
@@ -46,23 +59,22 @@ import Debug.Trace; debug a = trace (show a) a
 escapedChars :: String
 escapedChars =  '"':'\\':"-!@~/()*[]="
 
--- | escape all possible meta characters.
---   most of these characters only need to be escaped in certain contexts
+-- | Escape all possible meta characters.
+--   Most of these characters only need to be escaped in certain contexts
 --   however, in normal searching they will all be ignored
-escapeString :: String -> String
-escapeString [] = []
-escapeString (x:xs) = if x `elem` escapedChars
-                        then '\\':x:escapeString xs
-                        else      x:escapeString xs
+escapeText :: Text -> Text
+escapeText = X.intercalate "\\" . breakBy (`elem` escapedChars)
+    where breakBy p t | X.null t  = [X.empty]
+                      | otherwise = (if p $ X.head t then ("":) else id) $ X.groupBy (\_ x -> not $ p x) t
 
 -- | The 'query' function runs a single query against the Sphinx daemon.
---   To pipeline multiple queries in a batch, use addQuery and runQueries
+--   To pipeline multiple queries in a batch, use and 'runQueries'.
 query :: Configuration -- ^ The configuration
-      -> String        -- ^ The indexes, "*" means every index
-      -> String        -- ^ The query string
+      -> String        -- ^ The indexes, \"*\" means every index
+      -> Text        -- ^ The query string
       -> IO (T.Result T.QueryResult) -- ^ just one search result back
 query config indexes search = do
-    let q = addQuery config search indexes ""
+    let q = T.Query search indexes X.empty
     results <- runQueries' config [q]
     -- same as toSearchResult, but we know there is just one query
     -- could just remove and use runQueries in the future
@@ -75,8 +87,15 @@ query config indexes search = do
       T.Retry   retry           -> T.Retry retry
       T.Warning warning (result:results) -> case result of
                         T.QueryOk result        -> T.Warning warning result
-                        T.QueryWarning w result -> T.Warning (BS.append warning w) result
+                        T.QueryWarning w result -> T.Warning (X.append warning w) result
                         T.QueryError code e     -> T.Error code e
+
+-- | This is a convenience function which accepts a search string and
+-- builds a query for that string over all indexes without attaching
+-- comments to the queries.
+simpleQuery :: Text  -- ^ The query string
+            -> T.Query -- ^ A query value that can be sent to 'runQueries'
+simpleQuery q = T.Query q "*" X.empty
 
 connect :: String -> Int -> IO Handle
 connect host port = do
@@ -89,24 +108,25 @@ connect host port = do
 
 -- | TODO: add configuration options
 buildExcerpts :: ExConf.ExcerptConfiguration -- ^ Contains host and port for connection and optional configuration for buildExcerpts
-              -> [String]               -- ^ list of document contents to be highlighted
-              -> String                 -- ^ The indexes, "*" means every index
-              -> String                 -- ^ The query string to use for excerpts
-              -> IO (T.Result [BS.ByteString]) -- ^ the documents with excerpts highlighted
+              -> [Text]               -- ^ list of document contents to be highlighted
+              -> String                 -- ^ The indexes, \"*\" means every index
+              -> Text                  -- ^ The query string to use for excerpts
+              -> IO (T.Result [Text]) -- ^ the documents with excerpts highlighted
 buildExcerpts config docs indexes words = do
   conn <- connect (ExConf.host config) (ExConf.port config)
-  let req = runPut $ makeBuildExcerpt addExcerpt
+  conv <- ICU.open (ExConf.encoding config) Nothing
+  let req = runPut $ makeBuildExcerpt (addExcerpt conv)
   BS.hPut conn req
   hFlush conn
   (status, response) <- getResponse conn
   case status of
-    T.OK      -> return $ T.Ok (getResults response)
-    T.WARNING -> return $ T.Warning (runGet getStr response) (getResults response)
-    T.RETRY   -> return $ T.Retry (errorMessage response)
-    T.ERROR n -> return $ T.Error n (errorMessage response)
+    T.OK      -> return $ T.Ok (getResults response conv)
+    T.WARNING -> return $ T.Warning (runGet (getTxt conv) response) (getResults response conv)
+    T.RETRY   -> return $ T.Retry (errorMessage conv response)
+    T.ERROR n -> return $ T.Error n (errorMessage conv response)
   where
-    getResults response = runGet ((length docs) `times` getStr) response
-    errorMessage response = BS.tail (BS.tail (BS.tail (BS.tail response)))
+    getResults response conv = runGet ((length docs) `times` getTxt conv) response
+    errorMessage conv response = runGet (getTxt conv) (BS.drop 4 response)
 
     makeBuildExcerpt putExcerpt = do
       cmd    T.ScExcerpt
@@ -114,19 +134,19 @@ buildExcerpts config docs indexes words = do
       num $ fromEnum $ BS.length (runPut putExcerpt)
       putExcerpt
 
-    addExcerpt :: Put
-    addExcerpt = do
+    addExcerpt :: ICU.Converter -> Put
+    addExcerpt conv = do
       num 0 -- mode
       num $ excerptFlags config
       str indexes
-      str words
+      txt conv words
       strC config [ExConf.beforeMatch, ExConf.afterMatch, ExConf.chunkSeparator]
       numC config [ExConf.limit, ExConf.around, ExConf.limitPassages, ExConf.limitWords, ExConf.startPassageId]
       str $ ExConf.htmlStripMode config
 #ifndef ONE_ONE_BETA
       str $ ExConf.passageBoundary config
 #endif
-      list str docs
+      list (txt conv) docs
 
     modeFlag :: ExConf.ExcerptConfiguration -> (ExConf.ExcerptConfiguration -> Bool) -> Int -> Int
     modeFlag cfg setting value = if setting cfg then value else 0
@@ -144,10 +164,10 @@ buildExcerpts config docs indexes words = do
       ])
 
 
--- | Use with addQuery to pipeline multiple queries.
+-- | Make multiple queries at once, using a list of 'T.Query'.
 -- For a single query, just use the query method
 -- Easier handling of query result than runQueries'
-runQueries :: Configuration -> [Put] -> IO (T.Result [T.QueryResult])
+runQueries :: Configuration -> [T.Query] -> IO (T.Result [T.QueryResult])
 runQueries cfg qs = runQueries' cfg qs >>= return . toSearchResult
   where
     --   with batched queries, each query can have an error code,
@@ -161,39 +181,39 @@ runQueries cfg qs = runQueries' cfg qs >>= return . toSearchResult
     toSearchResult :: T.Result [T.SingleResult] -> T.Result [T.QueryResult]
     toSearchResult results =
         case results of
-          T.Ok rs              -> fromOk rs [] BS.empty
+          T.Ok rs              -> fromOk rs [] X.empty
           T.Warning warning rs -> fromWarn warning rs []
           T.Retry   retry      -> T.Retry retry
           T.Error   code error -> T.Error code error
       where
-        fromOk :: [T.SingleResult] -> [T.QueryResult] -> BS.ByteString -> T.Result [T.QueryResult]
-        fromOk [] acc warn | BS.null warn = T.Ok acc
+        fromOk :: [T.SingleResult] -> [T.QueryResult] -> Text -> T.Result [T.QueryResult]
+        fromOk [] acc warn | X.null warn = T.Ok acc
                            | otherwise = T.Warning warn acc
         fromOk (r:rs) acc warn = case r of
           T.QueryOk result        -> fromOk rs (acc ++ [result]) warn
-          T.QueryWarning w result -> fromOk rs (acc ++ [result]) (BS.append warn w)
+          T.QueryWarning w result -> fromOk rs (acc ++ [result]) (X.append warn w)
           T.QueryError code e     -> T.Error code e
 
-        fromWarn :: BS.ByteString -> [T.SingleResult] -> [T.QueryResult] -> T.Result [T.QueryResult]
+        fromWarn :: Text -> [T.SingleResult] -> [T.QueryResult] -> T.Result [T.QueryResult]
         fromWarn warning [] acc = T.Warning warning acc
         fromWarn warning (r:rs) acc = case r of
           T.QueryOk result        -> fromWarn warning rs (result:acc)
-          T.QueryWarning w result -> fromWarn (BS.append warning w) rs (result:acc)
+          T.QueryWarning w result -> fromWarn (X.append warning w) rs (result:acc)
           T.QueryError code e     -> T.Error code e
 
--- | lower level- called by 'runQueries'
--- | This may be useful for debugging problems- warning messages won't get compressed
-runQueries' :: Configuration -> [Put] -> IO (T.Result [T.SingleResult])
+-- | Lower level- called by 'runQueries'.
+-- This may be useful for debugging problems- warning messages won't get compressed
+runQueries' :: Configuration -> [T.Query] -> IO (T.Result [T.SingleResult])
 runQueries' config qs = do
     conn <- connect (host config) (port config)
-    BS.hPut conn request
+    conv <- ICU.open (encoding config) Nothing
+    let queryReq = foldPuts $ map (serializeQuery config conv) qs
+    BS.hPut conn (request queryReq)
     hFlush conn
-    getSearchResult conn
+    getSearchResult conn conv
   where 
     numQueries = length qs
-    queryReq = foldPuts qs
-
-    request = runPut $ do
+    request qr = runPut $ do
                 cmd T.ScSearch
                 verCmd T.VcSearch
                 num $ 
@@ -202,24 +222,24 @@ runQueries' config qs = do
 #else
                       8
 #endif
-                        + (fromEnum $ BS.length (runPut queryReq))
+                        + (fromEnum $ BS.length (runPut qr))
 #ifndef ONE_ONE_BETA
                 num 0
 #endif
                 num numQueries
-                queryReq
+                qr
 
-    getSearchResult :: Handle -> IO (T.Result [T.SingleResult])
-    getSearchResult conn = do
+    getSearchResult :: Handle -> ICU.Converter -> IO (T.Result [T.SingleResult])
+    getSearchResult conn conv = do
       (status, response) <- getResponse conn
       case status of
-        T.OK      -> return $ T.Ok (getResults response)
-        T.WARNING -> return $ T.Warning (runGet getStr response) (getResults response)
-        T.RETRY   -> return $ T.Retry (errorMessage response)
-        T.ERROR n -> return $ T.Error n (errorMessage response)
+        T.OK      -> return $ T.Ok (getResults response conv)
+        T.WARNING -> return $ T.Warning (runGet (getTxt conv) response) (getResults response conv)
+        T.RETRY   -> return $ T.Retry (errorMessage conv response)
+        T.ERROR n -> return $ T.Error n (errorMessage conv response)
       where
-        getResults response = runGet (numQueries `times` getResult) response
-        errorMessage response = BS.tail (BS.tail (BS.tail (BS.tail response)))
+        getResults response conv = runGet (numQueries `times` getResult conv) response
+        errorMessage conv response = runGet (getTxt conv) (BS.drop 4 response)
 
 
 -- | Combine results from 'runQueries' into matches.
@@ -237,7 +257,7 @@ resultsToMatches maxResults = combine
 
 -- | executes 'runQueries'. Log warning and errors, automatically retry.
 -- Return a Nothing on error, otherwise a Just.
-maybeQueries :: (BS.ByteString -> IO ()) -> Configuration -> [Put] -> IO (Maybe [T.QueryResult])
+maybeQueries :: (Text -> IO ()) -> Configuration -> [T.Query] -> IO (Maybe [T.QueryResult])
 maybeQueries logCallback conf queries = do
   result <- runQueries conf queries
   case result of
@@ -245,9 +265,8 @@ maybeQueries logCallback conf queries = do
     T.Retry msg      -> logCallback msg  >> maybeQueries logCallback conf queries
     T.Warning w r    -> logCallback w    >> return (Just r)
     T.Error code msg ->
-      logCallback (BS.concat ["Error code ",BS8.pack $ show code,". ",msg]) >> return Nothing
+      logCallback (X.concat ["Error code ",X.pack $ show code,". ",msg]) >> return Nothing
 
--- | TODO: hide this function
 getResponse :: Handle -> IO (T.Status, BS.ByteString)
 getResponse conn = do
   header <- BS.hGet conn 8
@@ -259,15 +278,15 @@ getResponse conn = do
   return (status, response)
 
 -- | use with runQueries to pipeline a batch of queries
-addQuery :: Configuration -> String -> String -> String -> Put
-addQuery cfg query indexes comment = do
+serializeQuery :: Configuration -> ICU.Converter -> T.Query -> Put
+serializeQuery cfg conv (T.Query qry indexes comment) = do
     numC cfg [ offset
              , limit
              , fromEnum . mode
              , fromEnum . ranker
              , fromEnum . sort]
     str (sortBy cfg)
-    str query
+    txt conv qry
     list num (weights cfg)
     str indexes
     num 1                     -- id64 range marker
@@ -287,7 +306,7 @@ addQuery cfg query indexes comment = do
     stringIntList (indexWeights cfg)
     num (maxQueryTime cfg)
     stringIntList (fieldWeights cfg)
-    str comment
+    txt conv comment
     num 0 -- attribute overrides (none)
     str (selectClause cfg) -- select-list
     where

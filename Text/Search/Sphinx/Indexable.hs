@@ -4,7 +4,7 @@ module Text.Search.Sphinx.Indexable (
   )
   where
 
-import Data.ByteString.Lazy.UTF8 (toString)
+import Data.Text (unpack)
 import qualified Text.Search.Sphinx.Types as T
 
 --import Text.Search.Sphinx.Types
@@ -37,7 +37,7 @@ docEl :: (String, T.Attr) -> Element
 docEl (name, content) = normalEl name `text` indexableEl content
 
 indexableEl (T.AttrUInt i)   = simpleText $ show i
-indexableEl (T.AttrString s) = simpleText $ toString s
+indexableEl (T.AttrString s) = simpleText $ unpack s
 indexableEl (T.AttrFloat f)  = simpleText $ show f
 indexableEl _  = error "not implemented"
 
