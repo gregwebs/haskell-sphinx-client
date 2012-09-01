@@ -6,7 +6,7 @@ Category:        Text, Search, Database
 License:         BSD3
 License-file:    LICENSE
 Author:          Chris Eidhof <ce+sphinx@tupil.com>, Greg Weber
-Maintainer:      Greg Weber <greg@gregweber.info>
+Maintainer:      Greg Weber <greg@gregweber.info>, Aleksandar Dimitrov <aleks.dimitrov@gmail.com>
 homepage:        https://github.com/gregwebs/haskell-sphinx-client
 
 cabal-version:   >= 1.2
