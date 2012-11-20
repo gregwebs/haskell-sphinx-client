@@ -1,7 +1,7 @@
 A haskell implementation of a [sphinx full text search](http://sphinxsearch.com) client.
 Sphinx is a very fast and featureful full-text search daemon.
 Version 0.4 is Compatible with sphinx version 1.1-beta
-Version 0.5 is Compatible with sphinx version 2.0-beta, but you can pass the version-one-one build flag.
+Version 0.5+ is Compatible with sphinx version 2.0, but you can instead pass the version-one-one build flag.
 [On hackage](http://hackage.haskell.org/package/sphinx).
 
 # Usage
@@ -93,6 +93,7 @@ History
 -------
 Originally written by Tupil and maintained by Chris Eidhof for an earlier version of sphinx.
 Greg Weber improved the library and updated it for the latest version of sphinx, and is now maintaining it.
+Aleksandar Dimitrov updated the library to use Text.
 
 Usage of this haskell client
 ----------------------------
