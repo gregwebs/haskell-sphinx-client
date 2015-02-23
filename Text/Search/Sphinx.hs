@@ -31,7 +31,7 @@ import qualified Text.Search.Sphinx.Types as T (
 import Text.Search.Sphinx.Configuration (Configuration(..), defaultConfig)
 import qualified Text.Search.Sphinx.ExcerptConfiguration as ExConf (ExcerptConfiguration(..))
 import Text.Search.Sphinx.Get (times, getResult, readHeader, getStr, getTxt)
-import Text.Search.Sphinx.Put (num, num64, enum, list, numC, strC, foldPuts,
+import Text.Search.Sphinx.Put (num, num64, float, enum, list, numC, strC, foldPuts,
                               numC64, stringIntList, str, txt, cmd, verCmd)
 
 import Data.Binary.Put (Put, runPut)
@@ -317,6 +317,7 @@ serializeQuery cfg conv (T.Query qry indexes comment) = do
 
       putFilter_ f@(T.FilterValues attr values)  ex = putFilter__ f attr (list num64) [values] ex
       putFilter_ f@(T.FilterRange  attr min max) ex = putFilter__ f attr num64 [min, max] ex
+      putFilter_ f@(T.FilterFloatRange  attr min max) ex = putFilter__ f attr float [min, max] ex
 
       putFilter__ filter attr puter values exclude = do
         str attr

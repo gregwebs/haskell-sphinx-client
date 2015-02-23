@@ -7,6 +7,7 @@ import Data.ByteString.Lazy hiding (pack, length, map, groupBy)
 import Data.ByteString.Lazy.Char8 (pack)
 import qualified Data.ByteString.Lazy as BS
 import qualified Text.Search.Sphinx.Types as T
+import Data.Binary.IEEE754 
 
 import Data.Text (Text)
 import qualified Data.Text.ICU.Convert as ICU
@@ -14,6 +15,8 @@ import qualified Data.ByteString as Strict (length)
 
 num     = putWord32be . fromIntegral
 num64 i = putWord64be $ fromIntegral i
+
+float = putFloat32be 
 
 enum :: Enum a => a -> Put
 enum = num . fromEnum

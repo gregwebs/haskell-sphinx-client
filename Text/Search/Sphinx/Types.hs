@@ -102,7 +102,7 @@ data Sort = Relevance
 data Filter = ExclusionFilter Filter
             | FilterValues String [Int64]
             | FilterRange  String Int64 Int64
-            -- TODO | FilterFloatRange attr Float Float
+            | FilterFloatRange String Float Float
             deriving (Show)
 
 -- | shortcut for creating an exclusion filter
@@ -110,7 +110,7 @@ exclude filter = ExclusionFilter filter
 
 fromEnumFilter (FilterValues _ _)  = 0
 fromEnumFilter (FilterRange _ _ _) = 1
--- fromEnumFilter (FilterFloatRange _ _ _) = 2
+fromEnumFilter (FilterFloatRange _ _ _) = 2
 
 -- | Attribute types
 data AttrT = AttrTUInt          -- unsigned 32-bit integer
