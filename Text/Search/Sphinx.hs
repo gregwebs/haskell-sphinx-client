@@ -126,7 +126,7 @@ buildExcerpts config docs indexes words = do
     T.ERROR n -> return $ T.Error n (errorMessage conv response)
   where
     getResults response conv = runGet ((length docs) `times` getTxt conv) response
-    errorMessage conv response = runGet (getTxt conv) (BS.drop 4 response)
+    errorMessage conv response = runGet (getTxt conv) response
 
     makeBuildExcerpt putExcerpt = do
       cmd    T.ScExcerpt
@@ -239,7 +239,7 @@ runQueries' config qs = do
         T.ERROR n -> return $ T.Error n (errorMessage conv response)
       where
         getResults response conv = runGet (numQueries `times` getResult conv) response
-        errorMessage conv response = runGet (getTxt conv) (BS.drop 4 response)
+        errorMessage conv response = runGet (getTxt conv) response
 
 
 -- | Combine results from 'runQueries' into matches.
