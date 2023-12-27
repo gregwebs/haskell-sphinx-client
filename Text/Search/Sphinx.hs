@@ -40,7 +40,7 @@ import qualified Data.ByteString.Lazy as BS
 import qualified Data.ByteString.Lazy.Char8 as BS8
 import Data.Int (Int64)
 
-import Network (connectTo, PortID(PortNumber))
+import qualified Network.Simple.TCP as TCP
 import System.IO (Handle, hFlush)
 import Data.Bits ((.|.))
 
@@ -50,6 +50,9 @@ import Data.List (nub)
 import Data.Text (Text)
 import qualified Data.Text as X
 import qualified Data.Text.ICU.Convert as ICU
+
+import Control.Monad.Catch ( MonadMask )
+import Control.Monad.IO.Class ( MonadIO )
 
 {- the funnest way to debug this is to run the same query with an existing working client and look at the difference
  - sudo tcpflow -i lo dst port 9306 
@@ -97,14 +100,13 @@ simpleQuery :: Text  -- ^ The query string
             -> T.Query -- ^ A query value that can be sent to 'runQueries'
 simpleQuery q = T.Query q "*" X.empty
 
-connect :: String -> Int -> IO Handle
-connect host port = do
-  connection <- connectTo host (PortNumber $ fromIntegral $ port)
-  bs         <- BS.hGet connection 4
-  let version   = runGet getWord32be bs
+withConnection :: (MonadIO m, MonadMask m, MonadFail m) => String -> Int -> (TCP.Socket -> m r) -> m r
+withConnection host port cont = TCP.connect host (show port) $ \(socket,_) -> do
+  Just bs <- TCP.recv socket 4
+  let version   = runGet getWord32be $ BS.fromStrict bs
       myVersion = runPut (num 1)
-  BS.hPut connection myVersion
-  return connection
+  TCP.send socket $ BS.toStrict myVersion
+  cont socket
 
 -- | TODO: add configuration options
 buildExcerpts :: ExConf.ExcerptConfiguration -- ^ Contains host and port for connection and optional configuration for buildExcerpts
@@ -112,12 +114,10 @@ buildExcerpts :: ExConf.ExcerptConfiguration -- ^ Contains host and port for con
               -> Text                 -- ^ The indexes, \"*\" means every index
               -> Text                  -- ^ The query string to use for excerpts
               -> IO (T.Result [Text]) -- ^ the documents with excerpts highlighted
-buildExcerpts config docs indexes words = do
-  conn <- connect (ExConf.host config) (ExConf.port config)
+buildExcerpts config docs indexes words = withConnection (ExConf.host config) (ExConf.port config) $ \conn -> do
   conv <- ICU.open (ExConf.encoding config) Nothing
   let req = runPut $ makeBuildExcerpt (addExcerpt conv)
-  BS.hPut conn req
-  hFlush conn
+  TCP.send conn $ BS.toStrict req
   (status, response) <- getResponse conn
   case status of
     T.OK      -> return $ T.Ok (getResults response conv)
@@ -204,12 +204,10 @@ runQueries cfg qs = runQueries' cfg qs >>= return . toSearchResult
 -- | Lower level- called by 'runQueries'.
 -- This may be useful for debugging problems- warning messages won't get compressed
 runQueries' :: Configuration -> [T.Query] -> IO (T.Result [T.SingleResult])
-runQueries' config qs = do
-    conn <- connect (host config) (port config)
+runQueries' config qs = withConnection (host config) (port config) $ \conn -> do
     conv <- ICU.open (encoding config) Nothing
     let queryReq = foldPuts $ map (serializeQuery config conv) qs
-    BS.hPut conn (request queryReq)
-    hFlush conn
+    TCP.send conn $ BS.toStrict $ request queryReq
     getSearchResult conn conv
   where 
     numQueries = length qs
@@ -229,7 +227,7 @@ runQueries' config qs = do
                 num numQueries
                 qr
 
-    getSearchResult :: Handle -> ICU.Converter -> IO (T.Result [T.SingleResult])
+    getSearchResult :: TCP.Socket -> ICU.Converter -> IO (T.Result [T.SingleResult])
     getSearchResult conn conv = do
       (status, response) <- getResponse conn
       case status of
@@ -267,15 +265,15 @@ maybeQueries logCallback conf queries = do
     T.Error code msg ->
       logCallback (X.concat ["Error code ",X.pack $ show code,". ",msg]) >> return Nothing
 
-getResponse :: Handle -> IO (T.Status, BS.ByteString)
+getResponse :: TCP.Socket -> IO (T.Status, BS.ByteString)
 getResponse conn = do
-  header <- BS.hGet conn 8
-  let (status, version, len) = readHeader header
+  Just header <- TCP.recv conn 8
+  let (status, version, len) = readHeader $ BS.fromStrict header
   if len == 0
     then error "received zero-sized searchd response (bad query?)"
     else return ()
-  response <- BS.hGet conn (fromIntegral len)
-  return (status, response)
+  Just response <- TCP.recv conn (fromIntegral len)
+  return (status, BS.fromStrict response)
 
 -- | use with runQueries to pipeline a batch of queries
 serializeQuery :: Configuration -> ICU.Converter -> T.Query -> Put
