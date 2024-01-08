@@ -86,6 +86,7 @@ data Rank = ProximityBm25  -- default mode, phrase proximity major factor and BM
           | MatchAny       -- internaly used to emulate SPHINX_MATCH_ANY searching mode
           | Fieldmask      -- ?
           | Sph04          -- like ProximityBm25, but more weight given to matches at beginning or end of field
+          | RankExpr       -- Custom expression, set with rankExpr
           | Total
           deriving (Show, Enum)
 
