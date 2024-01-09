@@ -28,6 +28,7 @@ import qualified Text.Search.Sphinx.Types as T (
   QueryStatus(..), toStatus, Status(..),
   SingleResult(..), Result(..), QueryResult(..))
 
+import Text.Search.Sphinx.Types ( Rank(..) )
 import Text.Search.Sphinx.Configuration (Configuration(..), defaultConfig)
 import qualified Text.Search.Sphinx.ExcerptConfiguration as ExConf (ExcerptConfiguration(..))
 import Text.Search.Sphinx.Get (times, getResult, readHeader, getStr, getTxt)
@@ -282,7 +283,12 @@ serializeQuery cfg conv (T.Query qry indexes comment) = do
              , limit
              , fromEnum . mode
              , fromEnum . ranker
-             , fromEnum . sort]
+             ]
+    case ranker cfg of
+      RankExpr -> str (rankExpr cfg)
+      _        -> pure ()
+
+    num (fromEnum (sort cfg))
     str (sortBy cfg)
     txt conv qry
     list num (weights cfg)

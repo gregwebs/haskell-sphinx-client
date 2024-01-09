@@ -35,6 +35,8 @@ data Configuration = Configuration {
   , mode :: T.MatchMode
     -- | Ranking mode
   , ranker :: T.Rank
+    -- | Ranking expression, used when ranker = RankExpr
+  , rankExpr :: String
     -- | Match sorting mode
   , sort :: T.Sort
     -- | Attribute to sort by
@@ -82,6 +84,7 @@ defaultConfig = Configuration {
                 , limit         = 20
                 , mode          = T.All
                 , ranker        = T.ProximityBm25
+                , rankExpr      = ""
                 , sort          = T.Relevance
                 , sortBy        = ""
                 , minId         = 0
